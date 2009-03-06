@@ -1,0 +1,23 @@
+<!--
+	Displays the form to choose the tag name.
+
+	This belongs to a build view.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+	<l:layout>
+		<st:include it="${it.project}" page="sidepanel.jelly" /> 
+		<l:main-panel>
+			<f:form method="get" action="submit">
+				<f:section title="Define release">
+					<f:entry title="${%Release version}" help="${rootURL}/plugin/m2release/help-projectConfig.html">
+						<f:textbox name="releaseVersion" value="${it.releaseVersion}" />
+					</f:entry>
+					<f:entry title="${%Next development version}" help="${rootURL}/plugin/m2release/help-projectConfig.html">
+						<f:textbox name="developmentVersion" value="${it.developmentVersion}" />
+					</f:entry>
+					<tr><td colspan="3"><f:submit value="${%Schedule Maven Release Build}"/></td></tr>
+				</f:section>
+			</f:form>
+		</l:main-panel>
+	</l:layout>
+</j:jelly>
