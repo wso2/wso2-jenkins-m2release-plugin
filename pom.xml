@@ -1,11 +1,10 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>org.jvnet.hudson.plugins</groupId>
 	<artifactId>m2release</artifactId>
 	<packaging>hpi</packaging>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.1.0</version>
 	<name>Hudson Maven Release Plug-in Plug-in</name>
 	<description>A plug-in that enables you to perform releases using the maven-release-plugin from Hudson.</description>
 	<url>http://wiki.hudson-ci.org/display/HUDSON/M2+Release+Plugin</url>
@@ -30,4 +29,10 @@
     </snapshotRepository>
   </distributionManagement>
 
+
+  <scm>
+    <connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/tags/m2release-0.1.0</connection>
+    <developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/tags/m2release-0.1.0</developerConnection>
+    <url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/m2release/tags/m2release-0.1.0</url>
+  </scm>
 </project>
