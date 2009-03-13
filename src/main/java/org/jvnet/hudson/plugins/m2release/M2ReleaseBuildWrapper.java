@@ -42,8 +42,8 @@ import java.io.IOException;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 /**
- * Wraps a {@link MavenBuild} to be able to run the <a
- * href="http://maven.apache.org/plugins/maven-release-plugin/">maven release plugin</a> on demand.
+ * Wraps a {@link MavenBuild} to be able to run the 
+ * <a href="http://maven.apache.org/plugins/maven-release-plugin/">maven release plugin</a> on demand.
  * 
  * @author James Nord
  * @version 0.1
@@ -51,9 +51,11 @@ import org.kohsuke.stapler.DataBoundConstructor;
  */
 public class M2ReleaseBuildWrapper extends BuildWrapper {
 
-	private transient boolean	doRelease	   = false;
+	
+	private transient boolean  doRelease             = false;
 
-	public String	          releaseGoals	= "release:prepare release:perform";
+	public static final String DEFAULT_RELEASE_GOALS = "release:prepare release:perform"; //$NON-NLS-1$
+	public String              releaseGoals          = DEFAULT_RELEASE_GOALS;
 
 
 	@DataBoundConstructor
@@ -64,11 +66,14 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 
 	@Override
-	public Environment setUp(AbstractBuild build, Launcher launcher, BuildListener listener) throws IOException,
+	public Environment setUp(AbstractBuild build, Launcher launcher, BuildListener listener)
+	                                                                                        throws IOException,
 	                                                                                        InterruptedException {
 		if (!doRelease) {
 			// we are not performing a release so don't need a custom tearDown.
-			return new Environment() {};
+			return new Environment() {
+				/** intentionally blank */
+			};
 		}
 		// reset for the next build.
 		doRelease = false;
@@ -95,7 +100,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return new Environment() {
 
 			@Override
-			public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
+			public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException,
+			                                                                    InterruptedException {
+				// TODO only re-set the build goals if they are still releaseGoals to avoid mid-air collisions.
 				if (build instanceof MavenBuild) {
 					MavenBuild m2Build = (MavenBuild) build;
 					MavenModule mm = m2Build.getProject();
@@ -117,18 +124,23 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		doRelease = true;
 	}
 
+
 	@Override
 	public Action getProjectAction(AbstractProject job) {
-		return new M2ReleaseAction((MavenModuleSet)job);
+		return new M2ReleaseAction((MavenModuleSet) job);
 	}
+
+
+
 
 	public static class DescriptorImpl extends BuildWrapperDescriptor {
 
 		public DescriptorImpl() {
 			super(M2ReleaseBuildWrapper.class);
-			//load();
+			// load();
 		}
-		
+
+
 		@Override
 		public boolean isApplicable(AbstractProject<?, ?> item) {
 			return (item instanceof AbstractMavenProject);
@@ -144,11 +156,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	// XXX only here to make it compile for now...
 	public static final DescriptorImpl INSTANCE = new DescriptorImpl();
-	
+
+
 	public Descriptor<BuildWrapper> getDescriptor() {
 		return INSTANCE;
 	}
-
-
 
 }

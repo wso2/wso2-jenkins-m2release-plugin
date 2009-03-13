@@ -32,6 +32,12 @@ import java.io.IOException;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 
+/**
+ * The action appears as the link in the side bar that users will click on in order to start the release
+ * process.
+ * 
+ * @author James Nord
+ */
 public class M2ReleaseAction implements Action {
 
 	private MavenModuleSet	project;
@@ -43,17 +49,17 @@ public class M2ReleaseAction implements Action {
 
 
 	public String getDisplayName() {
-		return "Perorm Maven Release"; // TODO il8n
+		return "Perform Maven Release"; // TODO il8n
 	}
 
 
 	public String getIconFileName() {
-		return "installer.gif";
+		return "installer.gif"; //$NON-NLS-1$
 	}
 
 
 	public String getUrlName() {
-		return "m2release";
+		return "m2release"; //$NON-NLS-1$
 	}
 
 
@@ -69,7 +75,6 @@ public class M2ReleaseAction implements Action {
 				// TODO enable embedding of SVN-revision as build number
 			}
 		}
-
 		// redirect to status page
 		resp.sendRedirect(project.getAbsoluteUrl());
 	}
