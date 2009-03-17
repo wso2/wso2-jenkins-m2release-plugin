@@ -54,7 +54,10 @@ public class M2ReleaseAction implements Action {
 
 
 	public String getIconFileName() {
-		return "installer.gif"; //$NON-NLS-1$
+		if (M2ReleaseBuildWrapper.hasReleasePermission(project)) {
+			return "installer.gif"; //$NON-NLS-1$
+		}
+		return null;
 	}
 
 
@@ -62,11 +65,12 @@ public class M2ReleaseAction implements Action {
 		return "m2release"; //$NON-NLS-1$
 	}
 
-
+	
+	
 	public void doSubmit(StaplerRequest req, StaplerResponse resp) throws IOException {
-		// find our wrapper!
+		M2ReleaseBuildWrapper.checkReleasePermission(project);
 		M2ReleaseBuildWrapper m2Wrapper = project.getBuildWrappers().get(M2ReleaseBuildWrapper.class);
-
+		
 		// schedule release build
 		synchronized (m2Wrapper) {
 			if (project.scheduleBuild(0, new Cause.UserCause())) {

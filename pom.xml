@@ -12,20 +12,11 @@
 	<parent>
 		<groupId>org.jvnet.hudson.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>1.288</version>
+		<version>1.292</version>
 	</parent>
-<!-- until we have built against 1.291 which includes updated distribution management -->
-  <distributionManagement>
-    <repository>
-      <uniqueVersion>false</uniqueVersion>
-      <id>java.net-m2-repository</id>
-      <!--url>svn:https://svn.dev.java.net/svn/maven2-repository/trunk/www/repository/</url-->
-      <url>java-net:/maven2-repository/trunk/repository/</url>
-    </repository>
-    <snapshotRepository>
-      <!-- prevent accidental deployment of SNAPSHOTS to repository -->
-      <id>local</id>
-      <url>file:.</url>
-    </snapshotRepository>
-  </distributionManagement>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>		
+	</properties>
+
 </project>

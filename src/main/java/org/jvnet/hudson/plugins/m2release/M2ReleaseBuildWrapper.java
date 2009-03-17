@@ -23,6 +23,7 @@
  */
 package org.jvnet.hudson.plugins.m2release;
 
+import hudson.Extension;
 import hudson.Launcher;
 import hudson.maven.AbstractMavenProject;
 import hudson.maven.MavenBuild;
@@ -33,7 +34,7 @@ import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Action;
 import hudson.model.BuildListener;
-import hudson.model.Descriptor;
+import hudson.model.Item;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 
@@ -54,8 +55,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	
 	private transient boolean  doRelease             = false;
 
-	public static final String DEFAULT_RELEASE_GOALS = "release:prepare release:perform"; //$NON-NLS-1$
-	public String              releaseGoals          = DEFAULT_RELEASE_GOALS;
+	public String              releaseGoals          = DescriptorImpl.DEFAULT_RELEASE_GOALS;
 
 
 	@DataBoundConstructor
@@ -130,10 +130,18 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return new M2ReleaseAction((MavenModuleSet) job);
 	}
 
+	public static boolean hasReleasePermission(AbstractProject job) {
+		return job.hasPermission(Item.BUILD);
+	}
 
+	public static void checkReleasePermission(AbstractProject job) {
+		job.checkPermission(Item.BUILD);
+	}
 
-
+	@Extension
 	public static class DescriptorImpl extends BuildWrapperDescriptor {
+		
+		public static final String DEFAULT_RELEASE_GOALS = "release:prepare release:perform"; //$NON-NLS-1$
 
 		public DescriptorImpl() {
 			super(M2ReleaseBuildWrapper.class);
@@ -152,14 +160,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			return "Maven release build";
 		}
 
-	}
-
-	// XXX only here to make it compile for now...
-	public static final DescriptorImpl INSTANCE = new DescriptorImpl();
-
-
-	public Descriptor<BuildWrapper> getDescriptor() {
-		return INSTANCE;
 	}
 
 }
