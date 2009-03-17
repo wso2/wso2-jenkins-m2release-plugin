@@ -8,6 +8,6 @@
 			Creates a text field that shows the value of the "releaseGoals" property.
 			When submitted, it will be passed to the corresponding constructor parameter.
 		-->
-		<f:textbox field="releaseGoals" value="${instance.releaseGoals}"/>
+		<f:textbox field="releaseGoals" value="${h.defaulted(instance.releaseGoals,descriptor.DEFAULT_RELEASE_GOALS)}"/>
 	</f:entry>
 </j:jelly>
