@@ -39,6 +39,7 @@ import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 
 import java.io.IOException;
+import java.util.Map;
 
 import org.kohsuke.stapler.DataBoundConstructor;
 
@@ -52,11 +53,11 @@ import org.kohsuke.stapler.DataBoundConstructor;
  */
 public class M2ReleaseBuildWrapper extends BuildWrapper {
 
-	
-	private transient boolean  doRelease             = false;
+	private transient boolean doRelease = false;
+	private transient Map<String,String> versions;
+	private transient boolean appendHudsonBuildNumber;
 
-	public String              releaseGoals          = DescriptorImpl.DEFAULT_RELEASE_GOALS;
-
+	public String releaseGoals = DescriptorImpl.DEFAULT_RELEASE_GOALS;
 
 	@DataBoundConstructor
 	public M2ReleaseBuildWrapper(String releaseGoals) {
@@ -86,12 +87,23 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			MavenModuleSet mmSet = mm.getParent();
 			originalGoals = mmSet.getGoals();
 			mmSet.setGoals(releaseGoals);
+			if (versions != null) {				
+				mmSet.setGoals(generateVersionString(build.getNumber()) + releaseGoals);
+			}
+			else {
+				mmSet.setGoals(releaseGoals);
+			}
 		}
 		else if (build instanceof MavenModuleSetBuild) {
 			MavenModuleSetBuild m2moduleSetBuild = (MavenModuleSetBuild) build;
 			MavenModuleSet mmSet = m2moduleSetBuild.getProject();
 			originalGoals = mmSet.getGoals();
-			mmSet.setGoals(releaseGoals);
+			if (versions != null) {
+				mmSet.setGoals(generateVersionString(build.getNumber()) + releaseGoals);
+			}
+			else {
+				mmSet.setGoals(releaseGoals);
+			}
 		}
 		else {
 			originalGoals = null;
@@ -114,6 +126,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					MavenModuleSet mmSet = m2moduleSetBuild.getProject();
 					mmSet.setGoals(originalGoals);
 				}
+				versions = null;
 				return true;
 			}
 		};
@@ -124,6 +137,30 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		doRelease = true;
 	}
 
+	void setVersions(Map<String,String> versions) {
+		// expects a -Dproject.rel.${m.moduleName}=version
+		this.versions = versions;
+	}
+
+	public void setAppendHudsonBuildNumber(boolean appendHudsonBuildNumber) {
+		this.appendHudsonBuildNumber = appendHudsonBuildNumber;
+	}
+
+	private String generateVersionString(int buildNumber) {
+		// -Dproject.rel.org.mycompany.group.project=version ....
+		StringBuilder sb = new StringBuilder();
+		for (String key : versions.keySet()) {
+			sb.append(key);
+			sb.append('=');
+			sb.append(versions.get(key));
+			if (appendHudsonBuildNumber && key.startsWith("-Dproject.rel")) {
+				sb.append('-');
+				sb.append(buildNumber);
+			}
+			sb.append(' ');
+		}
+		return sb.toString();
+	}
 
 	@Override
 	public Action getProjectAction(AbstractProject job) {
@@ -141,7 +178,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	@Extension
 	public static class DescriptorImpl extends BuildWrapperDescriptor {
 		
-		public static final String DEFAULT_RELEASE_GOALS = "release:prepare release:perform"; //$NON-NLS-1$
+		public static final String DEFAULT_RELEASE_GOALS = "-Dresume=false release:prepare release:perform"; //$NON-NLS-1$
 
 		public DescriptorImpl() {
 			super(M2ReleaseBuildWrapper.class);

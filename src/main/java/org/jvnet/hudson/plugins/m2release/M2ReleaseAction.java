@@ -23,11 +23,20 @@
  */
 package org.jvnet.hudson.plugins.m2release;
 
+import hudson.maven.MavenModule;
 import hudson.maven.MavenModuleSet;
 import hudson.model.Action;
 import hudson.model.Cause;
 
 import java.io.IOException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
+import javax.servlet.ServletException;
+
+import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
@@ -57,6 +66,7 @@ public class M2ReleaseAction implements Action {
 		if (M2ReleaseBuildWrapper.hasReleasePermission(project)) {
 			return "installer.gif"; //$NON-NLS-1$
 		}
+		// by returning null the link will not be shown. 
 		return null;
 	}
 
@@ -65,18 +75,62 @@ public class M2ReleaseAction implements Action {
 		return "m2release"; //$NON-NLS-1$
 	}
 
+	public Collection<MavenModule> getModules() {
+		return project.getModules();
+	}
 	
+	public String computeReleaseVersion(String version) {
+		return version.replace("-SNAPSHOT", "");
+	}
 	
-	public void doSubmit(StaplerRequest req, StaplerResponse resp) throws IOException {
+	public String computeNextVersion(String version) {
+		/// XXX would be nice to use maven to do this...
+		String retVal = computeReleaseVersion(version);
+		// get the integer after the last "."
+		int dotIdx = retVal.lastIndexOf('.');
+		if (dotIdx != -1) {
+			dotIdx++;
+			String ver = retVal.substring(dotIdx);
+			int intVer = Integer.parseInt(ver);
+			intVer += 1;
+			retVal = retVal.substring(0, dotIdx);
+			retVal = retVal + intVer;
+		}
+		else {
+			int intVer = Integer.parseInt(retVal);
+			intVer += 1;
+			retVal = retVal.substring(0, dotIdx);
+			retVal = Integer.toString(intVer);
+		}
+		return retVal + "-SNAPSHOT";
+	}
+	
+	public void doSubmit(StaplerRequest req, StaplerResponse resp) throws IOException, ServletException {
 		M2ReleaseBuildWrapper.checkReleasePermission(project);
 		M2ReleaseBuildWrapper m2Wrapper = project.getBuildWrappers().get(M2ReleaseBuildWrapper.class);
 		
+		// JSON collapses everything in the dynamic specifyVersions section so we need to fall back to
+		// good old http...
+		Map httpParams = req.getParameterMap();
+
+		Map<String,String> versions = null;
+		final boolean appendHudsonBuildNumber = httpParams.containsKey("appendHudsonBuildNumber");
+		if (httpParams.containsKey("specifyVersions")) {
+			versions = new HashMap<String,String>();
+			for (Object key : httpParams.keySet()) {
+				String keyStr = (String)key;
+				if (keyStr.startsWith("-Dproject.")) {
+					versions.put(keyStr, (String)(((Object[])httpParams.get(key))[0]));
+				}
+			}
+		}
+			
 		// schedule release build
 		synchronized (m2Wrapper) {
 			if (project.scheduleBuild(0, new Cause.UserCause())) {
 				m2Wrapper.enableRelease();
-				// TODO enable configuration of release version
-				// TODO enable embedding of SVN-revision as build number
+				m2Wrapper.setVersions(versions);
+				m2Wrapper.setAppendHudsonBuildNumber(appendHudsonBuildNumber);
 			}
 		}
 		// redirect to status page
