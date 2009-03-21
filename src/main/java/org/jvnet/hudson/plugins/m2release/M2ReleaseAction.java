@@ -31,12 +31,9 @@ import hudson.model.Cause;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 import javax.servlet.ServletException;
-
-import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
@@ -46,6 +43,7 @@ import org.kohsuke.stapler.StaplerResponse;
  * process.
  * 
  * @author James Nord
+ * @version 0.2
  */
 public class M2ReleaseAction implements Action {
 
@@ -111,7 +109,7 @@ public class M2ReleaseAction implements Action {
 		
 		// JSON collapses everything in the dynamic specifyVersions section so we need to fall back to
 		// good old http...
-		Map httpParams = req.getParameterMap();
+		Map<?,?> httpParams = req.getParameterMap();
 
 		Map<String,String> versions = null;
 		final boolean appendHudsonBuildNumber = httpParams.containsKey("appendHudsonBuildNumber");

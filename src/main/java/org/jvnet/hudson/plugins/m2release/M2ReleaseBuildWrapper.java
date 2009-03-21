@@ -48,7 +48,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
  * <a href="http://maven.apache.org/plugins/maven-release-plugin/">maven release plugin</a> on demand.
  * 
  * @author James Nord
- * @version 0.1
+ * @version 0.2
  * @since 0.1
  */
 public class M2ReleaseBuildWrapper extends BuildWrapper {
@@ -138,7 +138,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	}
 
 	void setVersions(Map<String,String> versions) {
-		// expects a -Dproject.rel.${m.moduleName}=version
+		// expects a map of key="-Dproject.rel.${m.moduleName}" value="version"
 		this.versions = versions;
 	}
 
