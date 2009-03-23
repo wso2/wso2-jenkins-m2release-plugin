@@ -112,17 +112,17 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return new Environment() {
 
 			@Override
-			public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException,
+			public boolean tearDown(AbstractBuild bld, BuildListener lstnr) throws IOException,
 			                                                                    InterruptedException {
 				// TODO only re-set the build goals if they are still releaseGoals to avoid mid-air collisions.
-				if (build instanceof MavenBuild) {
-					MavenBuild m2Build = (MavenBuild) build;
+				if (bld instanceof MavenBuild) {
+					MavenBuild m2Build = (MavenBuild) bld;
 					MavenModule mm = m2Build.getProject();
 					MavenModuleSet mmSet = mm.getParent();
 					mmSet.setGoals(originalGoals);
 				}
-				else if (build instanceof MavenModuleSetBuild) {
-					MavenModuleSetBuild m2moduleSetBuild = (MavenModuleSetBuild) build;
+				else if (bld instanceof MavenModuleSetBuild) {
+					MavenModuleSetBuild m2moduleSetBuild = (MavenModuleSetBuild) bld;
 					MavenModuleSet mmSet = m2moduleSetBuild.getProject();
 					mmSet.setGoals(originalGoals);
 				}
@@ -194,7 +194,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 		@Override
 		public String getDisplayName() {
-			return "Maven release build";
+			return "Maven release build"; // TODO il8n
 		}
 
 	}

@@ -106,7 +106,7 @@ public class M2ReleaseAction implements Action {
 	public void doSubmit(StaplerRequest req, StaplerResponse resp) throws IOException, ServletException {
 		M2ReleaseBuildWrapper.checkReleasePermission(project);
 		M2ReleaseBuildWrapper m2Wrapper = project.getBuildWrappers().get(M2ReleaseBuildWrapper.class);
-		
+
 		// JSON collapses everything in the dynamic specifyVersions section so we need to fall back to
 		// good old http...
 		Map<?,?> httpParams = req.getParameterMap();
