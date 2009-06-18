@@ -16,10 +16,10 @@
 	</parent>
 	
 	<dependencies>
-    <dependency>
-      <groupId>org.jvnet.hudson.main</groupId>
-      <artifactId>maven-plugin</artifactId>
-    </dependency>
+		<dependency>
+			<groupId>org.jvnet.hudson.main</groupId>
+			<artifactId>maven-plugin</artifactId>
+		</dependency>
 	</dependencies>
 	
 	<properties>
