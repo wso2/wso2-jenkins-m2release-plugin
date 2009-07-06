@@ -67,7 +67,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 
 	@Override
-	public Environment setUp(AbstractBuild build, Launcher launcher, BuildListener listener)
+	public Environment setUp(AbstractBuild build, Launcher launcher, final BuildListener listener)
 	                                                                                        throws IOException,
 	                                                                                        InterruptedException {
 		if (!doRelease) {
@@ -79,25 +79,12 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		// reset for the next build.
 		doRelease = false;
 
-		// TODO do we need to set the goals back?
 		final String originalGoals;
-		if (build instanceof MavenBuild) {
-			MavenBuild m2Build = (MavenBuild) build;
-			MavenModule mm = m2Build.getProject();
-			MavenModuleSet mmSet = mm.getParent();
+		MavenModuleSet mmSet = getModuleSet(build); 
+		if (mmSet != null) {
 			originalGoals = mmSet.getGoals();
 			mmSet.setGoals(releaseGoals);
-			if (versions != null) {				
-				mmSet.setGoals(generateVersionString(build.getNumber()) + releaseGoals);
-			}
-			else {
-				mmSet.setGoals(releaseGoals);
-			}
-		}
-		else if (build instanceof MavenModuleSetBuild) {
-			MavenModuleSetBuild m2moduleSetBuild = (MavenModuleSetBuild) build;
-			MavenModuleSet mmSet = m2moduleSetBuild.getProject();
-			originalGoals = mmSet.getGoals();
+
 			if (versions != null) {
 				mmSet.setGoals(generateVersionString(build.getNumber()) + releaseGoals);
 			}
@@ -106,28 +93,29 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			}
 		}
 		else {
+			// can this be so?
 			originalGoals = null;
 		}
-
+		final String mavenOpts = mmSet.getMavenOpts();
+		
 		return new Environment() {
-
+			
+			@Override
+			public void buildEnvVars(java.util.Map<String,String> env) {
+				if (mavenOpts != null && !env.containsKey("MAVEN_OPTS")) {
+					env.put("MAVEN_OPTS", mavenOpts);
+				}
+			};
+			
 			@Override
 			public boolean tearDown(AbstractBuild bld, BuildListener lstnr) throws IOException,
 			                                                                    InterruptedException {
 				// TODO only re-set the build goals if they are still releaseGoals to avoid mid-air collisions.
-				if (bld instanceof MavenBuild) {
-					MavenBuild m2Build = (MavenBuild) bld;
-					MavenModule mm = m2Build.getProject();
-					MavenModuleSet mmSet = mm.getParent();
-					mmSet.setGoals(originalGoals);
-				}
-				else if (bld instanceof MavenModuleSetBuild) {
-					MavenModuleSetBuild m2moduleSetBuild = (MavenModuleSetBuild) bld;
-					MavenModuleSet mmSet = m2moduleSetBuild.getProject();
-					mmSet.setGoals(originalGoals);
-				}
+				boolean retVal = true;
+				MavenModuleSet mmSet = getModuleSet(bld); 
+				mmSet.setGoals(originalGoals);
 				versions = null;
-				return true;
+				return retVal;
 			}
 		};
 	}
@@ -162,6 +150,23 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return sb.toString();
 	}
 
+	private MavenModuleSet getModuleSet(AbstractBuild build) {
+		if (build instanceof MavenBuild) {
+			MavenBuild m2Build = (MavenBuild) build;
+			MavenModule mm = m2Build.getProject();
+			MavenModuleSet mmSet = mm.getParent();
+			return mmSet;
+		}
+		else if (build instanceof MavenModuleSetBuild) {
+			MavenModuleSetBuild m2moduleSetBuild = (MavenModuleSetBuild) build;
+			MavenModuleSet mmSet = m2moduleSetBuild.getProject();
+			return mmSet;
+		}
+		else {
+			return null;
+		}
+	}
+	
 	@Override
 	public Action getProjectAction(AbstractProject job) {
 		return new M2ReleaseAction((MavenModuleSet) job);
@@ -179,7 +184,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public static class DescriptorImpl extends BuildWrapperDescriptor {
 		
 		public static final String DEFAULT_RELEASE_GOALS = "-Dresume=false release:prepare release:perform"; //$NON-NLS-1$
-
+		
 		public DescriptorImpl() {
 			super(M2ReleaseBuildWrapper.class);
 			// load();
