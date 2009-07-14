@@ -2,31 +2,17 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>org.jvnet.hudson.plugins.m2release</groupId>
-	<artifactId>m2release</artifactId>
-	<packaging>hpi</packaging>
+	<artifactId>parent</artifactId>
+	<packaging>pom</packaging>
 	<version>0.3.0-SNAPSHOT</version>
-	<name>Hudson Maven Release Plug-in Plug-in</name>
+	<name>Hudson Maven Release Plug-in Parent</name>
 	<description>A plug-in that enables you to perform releases using the maven-release-plugin from Hudson.</description>
 	<url>http://wiki.hudson-ci.org/display/HUDSON/M2+Release+Plugin</url>
 
-	<parent>
-		<groupId>org.jvnet.hudson.plugins</groupId>
-		<artifactId>plugin</artifactId>
-		<version>1.315</version>
-	</parent>
-	
-	<dependencies>
-		<dependency>
-			<groupId>org.jvnet.hudson.main</groupId>
-			<artifactId>maven-plugin</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.jvnet.hudson.plugins.m2Release</groupId>
-			<artifactId>nexus</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
-		</dependency>
-	</dependencies>
-
+	<modules>
+		<module>nexus</module>
+		<module>plugin</module>
+	</modules>
 	
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
