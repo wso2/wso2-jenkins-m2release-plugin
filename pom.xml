@@ -20,7 +20,13 @@
 			<groupId>org.jvnet.hudson.main</groupId>
 			<artifactId>maven-plugin</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>org.jvnet.hudson.plugins.m2Release</groupId>
+			<artifactId>nexus</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+		</dependency>
 	</dependencies>
+
 	
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
