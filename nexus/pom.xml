@@ -1,0 +1,73 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+ <modelVersion>4.0.0</modelVersion>
+
+ <groupId>org.jvnet.hudson.plugins.m2release</groupId>
+ <artifactId>nexus</artifactId>
+ <packaging>jar</packaging>
+ <version>0.0.1-SNAPSHOT</version>
+ <name>Hudson Maven Release Plug-in nexus helper</name>
+ <description>shaded jar that gets around some class loading issues in HUdson versions prior to 1.316</description>
+ 
+ <dependencies>
+  <dependency>
+   <artifactId>nexus-restlight-stage-client</artifactId>
+   <groupId>org.sonatype.nexus.restlight</groupId>
+   <version>1.3.3</version>
+   <exclusions>
+    <exclusion>
+     <groupId>jdom</groupId>
+     <artifactId>jdom</artifactId>
+    </exclusion>
+    <exclusion>
+     <groupId>log4j</groupId>
+     <artifactId>log4j</artifactId>
+    </exclusion>
+    <exclusion>
+     <groupId>jdom</groupId>
+     <artifactId>jdom</artifactId>
+    </exclusion>
+    <exclusion>
+     <groupId>xml-apis</groupId>
+     <artifactId>xml-apis</artifactId>
+    </exclusion>
+    <exclusion>
+     <groupId>xerces</groupId>
+     <artifactId>xercesImpl</artifactId>
+    </exclusion>
+    <exclusion>
+     <groupId>xerces</groupId>
+     <artifactId>xmlParserAPIs</artifactId>
+    </exclusion>
+    <exclusion>
+     <groupId>xom</groupId>
+     <artifactId>xom</artifactId>
+    </exclusion>
+   </exclusions>
+  </dependency>
+ </dependencies>
+ <build>
+  <plugins>
+   <plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-shade-plugin</artifactId>
+    <version>1.2.1</version>
+    <executions>
+     <execution>
+      <phase>package</phase>
+      <goals>
+       <goal>shade</goal>
+      </goals>
+      <configuration>
+       <relocations>
+        <relocation>
+         <pattern>org.jaxen</pattern>
+         <shadedPattern>org.blah.foo.bar.org.jaxen</shadedPattern>
+        </relocation>
+       </relocations>
+      </configuration>
+     </execution>
+    </executions>
+   </plugin>
+  </plugins>
+ </build>
+</project>
