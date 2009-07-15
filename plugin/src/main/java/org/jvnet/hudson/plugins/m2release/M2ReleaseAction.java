@@ -47,7 +47,7 @@ import org.kohsuke.stapler.StaplerResponse;
  */
 public class M2ReleaseAction implements Action {
 
-	private MavenModuleSet	project;
+	private MavenModuleSet project;
 
 
 	public M2ReleaseAction(MavenModuleSet project) {
@@ -56,7 +56,7 @@ public class M2ReleaseAction implements Action {
 
 
 	public String getDisplayName() {
-		return "Perform Maven Release"; // TODO il8n
+		return Messages.ReleaseAction_perform_release_name();
 	}
 
 
@@ -78,7 +78,7 @@ public class M2ReleaseAction implements Action {
 	}
 	
 	public String computeReleaseVersion(String version) {
-		return version.replace("-SNAPSHOT", "");
+		return version.replace("-SNAPSHOT", ""); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 	
 	public String computeNextVersion(String version) {
@@ -100,7 +100,7 @@ public class M2ReleaseAction implements Action {
 			retVal = retVal.substring(0, dotIdx);
 			retVal = Integer.toString(intVer);
 		}
-		return retVal + "-SNAPSHOT";
+		return retVal + "-SNAPSHOT"; //$NON-NLS-1$
 	}
 	
 	public void doSubmit(StaplerRequest req, StaplerResponse resp) throws IOException, ServletException {
