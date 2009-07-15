@@ -21,7 +21,7 @@
 			<artifactId>maven-plugin</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.jvnet.hudson.plugins.m2Release</groupId>
+			<groupId>org.jvnet.hudson.plugins.m2release</groupId>
 			<artifactId>nexus</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
