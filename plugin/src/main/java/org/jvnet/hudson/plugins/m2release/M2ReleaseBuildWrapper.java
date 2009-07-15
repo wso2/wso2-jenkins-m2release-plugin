@@ -35,22 +35,20 @@ import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Action;
 import hudson.model.BuildListener;
+import hudson.model.Descriptor;
 import hudson.model.Hudson;
 import hudson.model.Item;
-import hudson.model.Job;
 import hudson.security.Permission;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
-import hudson.util.FormFieldValidator;
+import hudson.tasks.Builder;
 import hudson.util.FormValidation;
-import hudson.util.FormValidation.Kind;
 import hudson.util.FormValidation.URLCheck;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.util.Map;
 
@@ -61,7 +59,6 @@ import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.StaplerResponse;
 import org.sonatype.nexus.restlight.common.RESTLightClientException;
 import org.sonatype.nexus.restlight.stage.StageClient;
 import org.sonatype.nexus.restlight.stage.StageRepository;
@@ -142,7 +139,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				boolean retVal = true;
 				MavenModuleSet mmSet = getModuleSet(bld);
 				mmSet.setGoals(originalGoals);
-				if (nexusStagingSupport) {
+				if (closeNexusStage) {
 
 					// nexus client tries to load the vocab using the contextClassLoader.
 					ClassLoader originalLoader = Thread.currentThread().getContextClassLoader();
@@ -198,6 +195,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		this.appendHudsonBuildNumber = appendHudsonBuildNumber;
 	}
 
+	public void setCloseNexusStage(boolean closeNexusStage) {
+		this.closeNexusStage = closeNexusStage;
+	}
 
 	private String generateVersionString(int buildNumber) {
 		// -Dproject.rel.org.mycompany.group.project=version ....
@@ -344,7 +344,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		/**
 		 * Checks if the Nexus URL exists and we can authenticate against it.
 		 */
-		public FormValidation doUrlCheck4(@QueryParameter String urlValue, 
+		public FormValidation doUrlCheck(@QueryParameter String urlValue, 
 		                                  @QueryParameter String usernameValue,
 		                                  @QueryParameter String passwordValue) throws IOException,
 		                                                                      ServletException {

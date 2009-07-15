@@ -23,6 +23,13 @@
 								<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
 							</f:entry>
 					</f:optionalBlock>
+					<j:if test="${it.nexusSupportEnabled}">
+						<f:section title="Nexus Pro Support">
+							<f:entry title="Close Nexus Staging Repository">
+								<f:checkbox name="closeNexusStage" checked="true" />
+							</f:entry>
+						</f:section>
+					</j:if>
 					<tr><td colspan="4" align="right">
 					<f:submit value="${%Schedule Maven Release Build}"/>
 					</td></tr>

@@ -103,6 +103,10 @@ public class M2ReleaseAction implements Action {
 		return retVal + "-SNAPSHOT"; //$NON-NLS-1$
 	}
 	
+	public boolean isNexusSupportEnabled() {
+		return project.getBuildWrappers().get(M2ReleaseBuildWrapper.class).getDescriptor().isNexusSupport();
+	}
+	
 	public void doSubmit(StaplerRequest req, StaplerResponse resp) throws IOException, ServletException {
 		M2ReleaseBuildWrapper.checkReleasePermission(project);
 		M2ReleaseBuildWrapper m2Wrapper = project.getBuildWrappers().get(M2ReleaseBuildWrapper.class);
@@ -112,7 +116,10 @@ public class M2ReleaseAction implements Action {
 		Map<?,?> httpParams = req.getParameterMap();
 
 		Map<String,String> versions = null;
+		
 		final boolean appendHudsonBuildNumber = httpParams.containsKey("appendHudsonBuildNumber");
+		final boolean closeNexusStage = httpParams.containsKey("closeNexusStage");
+		
 		if (httpParams.containsKey("specifyVersions")) {
 			versions = new HashMap<String,String>();
 			for (Object key : httpParams.keySet()) {
@@ -129,6 +136,7 @@ public class M2ReleaseAction implements Action {
 				m2Wrapper.enableRelease();
 				m2Wrapper.setVersions(versions);
 				m2Wrapper.setAppendHudsonBuildNumber(appendHudsonBuildNumber);
+				m2Wrapper.setCloseNexusStage(closeNexusStage);
 			}
 		}
 		// redirect to status page

@@ -29,7 +29,7 @@
 				</f:entry>
 				<f:entry title="Nexus Password" help="${rootURL}/plugin/m2release/help-NexusUserPass.html">
 					<f:password name="m2release.nexusPassword" value="${descriptor.nexusPassword}" 
-					            checkUrl="'${rootURL}/buildWrapper/M2ReleaseBuildWrapper/urlCheck4?urlValue='+escape(Form.findMatchingInput(this,'m2release.nexusURL').value)+'&amp;usernameValue='+escape(Form.findMatchingInput(this,'m2release.nexusUser').value)+'&amp;passwordValue='+escape(Form.findMatchingInput(this,'m2release.nexusPassword').value)"
+					            checkUrl="'${rootURL}/buildWrapper/M2ReleaseBuildWrapper/urlCheck?urlValue='+escape(Form.findMatchingInput(this,'m2release.nexusURL').value)+'&amp;usernameValue='+escape(Form.findMatchingInput(this,'m2release.nexusUser').value)+'&amp;passwordValue='+escape(Form.findMatchingInput(this,'m2release.nexusPassword').value)"
 					            checkMethod="post" />
 				</f:entry>
 			</f:optionalBlock>
