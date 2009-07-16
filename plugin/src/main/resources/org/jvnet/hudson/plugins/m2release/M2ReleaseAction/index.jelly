@@ -25,9 +25,16 @@
 					</f:optionalBlock>
 					<j:if test="${it.nexusSupportEnabled}">
 						<f:section title="Nexus Pro Support">
+							<f:optionalBlock name="closeNexusStage" title="Close Nexus Staging Repository" checked="true">
+<!--
 							<f:entry title="Close Nexus Staging Repository">
 								<f:checkbox name="closeNexusStage" checked="true" />
 							</f:entry>
+-->
+							<f:entry title="Repository Description">
+								<f:textbox name="repoDescription" value="${it.computeRepoDescription()}" />
+							</f:entry>
+						</f:optionalBlock>
 						</f:section>
 					</j:if>
 					<tr><td colspan="4" align="right">

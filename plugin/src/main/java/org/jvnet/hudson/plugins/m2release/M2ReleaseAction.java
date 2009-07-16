@@ -43,7 +43,7 @@ import org.kohsuke.stapler.StaplerResponse;
  * process.
  * 
  * @author James Nord
- * @version 0.2
+ * @version 0.3
  */
 public class M2ReleaseAction implements Action {
 
@@ -81,6 +81,10 @@ public class M2ReleaseAction implements Action {
 		return version.replace("-SNAPSHOT", ""); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 	
+	public String computeRepoDescription() {
+		return "Release " + computeReleaseVersion(project.getRootModule().getVersion()) + " of " + project.getRootModule().getName();
+	}
+
 	public String computeNextVersion(String version) {
 		/// XXX would be nice to use maven to do this...
 		String retVal = computeReleaseVersion(version);
@@ -117,8 +121,9 @@ public class M2ReleaseAction implements Action {
 
 		Map<String,String> versions = null;
 		
-		final boolean appendHudsonBuildNumber = httpParams.containsKey("appendHudsonBuildNumber");
-		final boolean closeNexusStage = httpParams.containsKey("closeNexusStage");
+		final boolean appendHudsonBuildNumber = httpParams.containsKey("appendHudsonBuildNumber"); //$NON-NLS-1$
+		final boolean closeNexusStage = httpParams.containsKey("closeNexusStage"); //$NON-NLS-1$
+		final String repoDescription = closeNexusStage ? ((String[])httpParams.get("repoDescription"))[0] : ""; //$NON-NLS-1$
 		
 		if (httpParams.containsKey("specifyVersions")) {
 			versions = new HashMap<String,String>();
@@ -129,14 +134,15 @@ public class M2ReleaseAction implements Action {
 				}
 			}
 		}
-			
+		
 		// schedule release build
 		synchronized (m2Wrapper) {
-			if (project.scheduleBuild(0, new Cause.UserCause())) {
+			if (project.scheduleBuild(0, new ReleaseCause())) {
 				m2Wrapper.enableRelease();
 				m2Wrapper.setVersions(versions);
 				m2Wrapper.setAppendHudsonBuildNumber(appendHudsonBuildNumber);
 				m2Wrapper.setCloseNexusStage(closeNexusStage);
+				m2Wrapper.setRepoDescription(repoDescription);
 			}
 		}
 		// redirect to status page

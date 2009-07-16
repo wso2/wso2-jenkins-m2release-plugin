@@ -69,7 +69,7 @@ import org.sonatype.nexus.restlight.stage.StageRepository;
  * ability to auto close a Nexus Pro Staging Repo
  * 
  * @author James Nord
- * @version 0.2
+ * @version 0.3
  * @since 0.1
  */
 public class M2ReleaseBuildWrapper extends BuildWrapper {
@@ -78,10 +78,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	private transient boolean             closeNexusStage     = true;
 	private transient Map<String, String> versions;
 	private transient boolean             appendHudsonBuildNumber;
-
+	private transient String              repoDescription;
+	
 	public String                         releaseGoals        = DescriptorImpl.DEFAULT_RELEASE_GOALS;
-	public boolean                        nexusStagingSupport = true;
-
+	//public boolean                        nexusStagingSupport = true;
+	
 
 	@DataBoundConstructor
 	public M2ReleaseBuildWrapper(String releaseGoals) {
@@ -151,22 +152,20 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						// TODO add support for a user supplied comment.
 						StageRepository repo = client.getOpenStageRepositoryForUser(rootModule.getModuleName().groupId,
 						                                                            rootModule.getModuleName().artifactId,
-						                                                            getReleaseVersion(rootModule));
+						                                                            repoDescription);
 						if (repo != null) {
-							lstnr.getLogger().append(
-							                         "[M2Release] Closing repository " + repo.getRepositoryId() + " at "
-							                             + repo.getUrl());
+							lstnr.getLogger().append("[M2Release] Closing repository " + repo.getRepositoryId() + " at "
+							                         + repo.getUrl());
 							client.finishRepository(repo, "Stage for: " + rootModule.getDisplayName());
+							lstnr.getLogger().append("[M2Release] Closed staging repository.");
 						}
 						else {
 							retVal = false;
-							lstnr.fatalError("[M2Release] Could not find nexus repository.");
-							lstnr.getLogger().append("[M2Release] Could not find nexus repository \n");
+							lstnr.fatalError("[M2Release] Could not find nexus stage repository for project.\n");
 						}
 					}
 					catch (RESTLightClientException ex) {
 						lstnr.fatalError("[M2Release] Could not close repository , %s\n", ex.toString());
-						lstnr.getLogger().append("[M2Release] Could not close repository " + ex.toString() + "\n");
 						retVal = false;
 					}
 					finally {
@@ -198,6 +197,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public void setCloseNexusStage(boolean closeNexusStage) {
 		this.closeNexusStage = closeNexusStage;
 	}
+
+	public void setRepoDescription(String repoDescription) {
+		this.repoDescription = repoDescription;
+	}
+
 
 	private String generateVersionString(int buildNumber) {
 		// -Dproject.rel.org.mycompany.group.project=version ....
