@@ -7,7 +7,14 @@
  <version>0.0.1-SNAPSHOT</version>
  <name>Hudson Maven Release Plug-in nexus helper</name>
  <description>shaded jar that gets around some class loading issues in HUdson versions prior to 1.316</description>
- 
+ <licenses>
+   <license>
+     <name>GPL</name>
+     <url>http://www.gnu.org/licenses/gpl.txt</url>
+     <distribution>repo</distribution>
+   </license>
+  </licenses>
+
  <dependencies>
   <dependency>
    <artifactId>nexus-restlight-stage-client</artifactId>
