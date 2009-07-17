@@ -26,7 +26,6 @@ package org.jvnet.hudson.plugins.m2release;
 import hudson.maven.MavenModule;
 import hudson.maven.MavenModuleSet;
 import hudson.model.Action;
-import hudson.model.Cause;
 
 import java.io.IOException;
 import java.util.Collection;
