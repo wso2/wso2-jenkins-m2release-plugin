@@ -14,7 +14,7 @@
  </parent>
 
  <scm>
- s <connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/nexus/</connection>
+  <connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/nexus/</connection>
   <developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/nexus/</developerConnection>
   <url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/m2release/nexus/</url>
  </scm>
