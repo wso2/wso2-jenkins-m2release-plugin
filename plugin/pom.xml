@@ -9,10 +9,17 @@
 	<description>A plug-in that enables you to perform releases using the maven-release-plugin from Hudson.</description>
 	<url>http://wiki.hudson-ci.org/display/HUDSON/M2+Release+Plugin</url>
 
+
+	<scm>
+		<connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/plugin</connection>
+		<developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/plugin</developerConnection>
+		<url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/m2release/plugin</url>
+	</scm>
+
 	<parent>
 		<groupId>org.jvnet.hudson.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>1.314</version>
+		<version>1.308</version>
 	</parent>
 	
 	<dependencies>

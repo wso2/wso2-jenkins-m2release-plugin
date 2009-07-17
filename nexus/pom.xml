@@ -7,6 +7,18 @@
  <version>0.0.1-SNAPSHOT</version>
  <name>Hudson Maven Release Plug-in nexus helper</name>
  <description>shaded jar that gets around some class loading issues in HUdson versions prior to 1.316</description>
+ <parent>
+  <groupId>org.jvnet.hudson</groupId>
+  <artifactId>hudson</artifactId>
+  <version>1.7</version>
+ </parent>
+
+ <scm>
+ s <connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/nexus/</connection>
+  <developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/nexus/</developerConnection>
+  <url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/m2release/nexus/</url>
+ </scm>
+
  <licenses>
    <license>
      <name>GPL</name>
