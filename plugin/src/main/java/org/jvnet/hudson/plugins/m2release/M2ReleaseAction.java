@@ -31,6 +31,9 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.LogManager;
+import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
 
@@ -98,10 +101,19 @@ public class M2ReleaseAction implements Action {
 			retVal = retVal + intVer;
 		}
 		else {
-			int intVer = Integer.parseInt(retVal);
-			intVer += 1;
-			retVal = retVal.substring(0, dotIdx);
-			retVal = Integer.toString(intVer);
+			//just a major version...
+			try {
+				int intVer = Integer.parseInt(retVal);
+				intVer += 1;
+				retVal = Integer.toString(intVer);
+			}
+			catch (NumberFormatException nfEx) {
+				// not a major version - just a qualifier!
+				Logger logger = Logger.getLogger(this.getClass().getName());
+				logger.log(Level.WARNING, "{0} is not a number, so I can't work out the next version.",
+				           new Object[] {retVal});
+				retVal = "NaN";
+			}
 		}
 		return retVal + "-SNAPSHOT"; //$NON-NLS-1$
 	}
