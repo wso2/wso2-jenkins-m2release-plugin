@@ -21,7 +21,15 @@
 		<artifactId>plugin</artifactId>
 		<version>1.308</version>
 	</parent>
-	
+
+	<licenses>
+		<license>
+			<name>GPL</name>
+			<url>http://www.gnu.org/licenses/gpl.txt</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.jvnet.hudson.main</groupId>
@@ -30,7 +38,7 @@
 		<dependency>
 			<groupId>org.jvnet.hudson.plugins.m2release</groupId>
 			<artifactId>nexus</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
+			<version>0.0.2</version>
 		</dependency>
 	</dependencies>
 
