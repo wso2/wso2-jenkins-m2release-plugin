@@ -4,16 +4,16 @@
 	<groupId>org.jvnet.hudson.plugins.m2release</groupId>
 	<artifactId>m2release</artifactId>
 	<packaging>hpi</packaging>
-	<version>0.3.0-SNAPSHOT</version>
+	<version>0.3.0</version>
 	<name>Hudson Maven Release Plug-in Plug-in</name>
 	<description>A plug-in that enables you to perform releases using the maven-release-plugin from Hudson.</description>
 	<url>http://wiki.hudson-ci.org/display/HUDSON/M2+Release+Plugin</url>
 
 
 	<scm>
-		<connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/plugin</connection>
-		<developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/plugin</developerConnection>
-		<url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/m2release/plugin</url>
+		<connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/tags/m2release-0.3.0</connection>
+		<developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/tags/m2release-0.3.0</developerConnection>
+		<url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/m2release/plugin/tags/m2release-0.3.0</url>
 	</scm>
 
 	<parent>
