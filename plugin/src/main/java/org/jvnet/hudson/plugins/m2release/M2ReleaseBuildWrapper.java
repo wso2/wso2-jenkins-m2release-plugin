@@ -81,7 +81,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	private transient String              repoDescription;
 	
 	public String                         releaseGoals        = DescriptorImpl.DEFAULT_RELEASE_GOALS;
-	//public boolean                        nexusStagingSupport = true;
 	
 
 	@DataBoundConstructor
@@ -95,34 +94,39 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public Environment setUp(AbstractBuild build, Launcher launcher, final BuildListener listener)
 	                                                                                              throws IOException,
 	                                                                                              InterruptedException {
-		if (!doRelease) {
-			// we are not performing a release so don't need a custom tearDown.
-			return new Environment() {
-				/** intentionally blank */
-			};
-		}
-		// reset for the next build.
-		doRelease = false;
-
 		final String originalGoals;
-		MavenModuleSet mmSet = getModuleSet(build);
-		if (mmSet != null) {
-			originalGoals = mmSet.getGoals();
-			mmSet.setGoals(releaseGoals);
+		MavenModuleSet mmSet;
+		final String mavenOpts;
+		
+		synchronized (getModuleSet(build)) {
+			if (!doRelease) {
+				// we are not performing a release so don't need a custom tearDown.
+				return new Environment() {
+					/** intentionally blank */
+				};
+			}
+			// reset for the next build.
+			doRelease = false;
 
-			if (versions != null) {
-				mmSet.setGoals(generateVersionString(build.getNumber()) + releaseGoals);
+			mmSet = getModuleSet(build);
+			if (mmSet != null) {
+				originalGoals = mmSet.getGoals();
+				mmSet.setGoals(releaseGoals);
+
+				if (versions != null) {
+					mmSet.setGoals(generateVersionString(build.getNumber()) + releaseGoals);
+				}
+				else {
+					mmSet.setGoals(releaseGoals);
+				}
 			}
 			else {
-				mmSet.setGoals(releaseGoals);
+				// can this be so?
+				originalGoals = null;
 			}
+			mavenOpts = mmSet.getMavenOpts();
 		}
-		else {
-			// can this be so?
-			originalGoals = null;
-		}
-		final String mavenOpts = mmSet.getMavenOpts();
-
+		
 		return new Environment() {
 
 			@Override
@@ -136,18 +140,26 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			@Override
 			public boolean tearDown(AbstractBuild bld, BuildListener lstnr) throws IOException,
 			                                                               InterruptedException {
-				// TODO only re-set the build goals if they are still releaseGoals to avoid mid-air collisions.
 				boolean retVal = true;
-				MavenModuleSet mmSet = getModuleSet(bld);
-				mmSet.setGoals(originalGoals);
-				if (closeNexusStage) {
+				// TODO only re-set the build goals if they are still releaseGoals to avoid mid-air collisions.
+				final MavenModuleSet mmSet = getModuleSet(bld);
+				final boolean localcloseStage;
+				synchronized (mmSet) {
+					mmSet.setGoals(originalGoals);
+					// get a local variable so we don't have to synchronise on mmSet any more than we have to.
+					localcloseStage = closeNexusStage;
+					versions = null;
+				}
 
+				if (localcloseStage) {
 					// nexus client tries to load the vocab using the contextClassLoader.
 					ClassLoader originalLoader = Thread.currentThread().getContextClassLoader();
 					ClassLoader newLoader = StageClient.class.getClassLoader();
 					Thread.currentThread().setContextClassLoader(newLoader);
 					try {
-						StageClient client = new StageClient(getDescriptor().getNexusURL(), getDescriptor().getNexusUser(), getDescriptor().getNexusPassword());
+						StageClient client = new StageClient(getDescriptor().getNexusURL(),
+						                                     getDescriptor().getNexusUser(),
+						                                     getDescriptor().getNexusPassword());
 						MavenModule rootModule = mmSet.getRootModule();
 						// TODO add support for a user supplied comment.
 						StageRepository repo = client.getOpenStageRepositoryForUser(rootModule.getModuleName().groupId,
@@ -155,7 +167,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						                                                            repoDescription);
 						if (repo != null) {
 							lstnr.getLogger().append("[M2Release] Closing repository " + repo.getRepositoryId() + " at "
-							                         + repo.getUrl());
+							                             + repo.getUrl());
 							client.finishRepository(repo, "Stage for: " + rootModule.getDisplayName());
 							lstnr.getLogger().append("[M2Release] Closed staging repository.");
 						}
@@ -172,7 +184,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						Thread.currentThread().setContextClassLoader(originalLoader);
 					}
 				}
-				versions = null;
 				return retVal;
 			}
 		};

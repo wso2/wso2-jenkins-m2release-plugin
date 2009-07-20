@@ -135,7 +135,7 @@ public class M2ReleaseAction implements Action {
 		}
 		
 		// schedule release build
-		synchronized (m2Wrapper) {
+		synchronized (project) {
 			if (project.scheduleBuild(0, new ReleaseCause())) {
 				m2Wrapper.enableRelease();
 				m2Wrapper.setVersions(versions);
