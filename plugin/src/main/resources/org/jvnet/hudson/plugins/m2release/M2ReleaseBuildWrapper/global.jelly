@@ -19,15 +19,15 @@
 		-->
 		<!--  any global configurations for the release plugin will go here. -->
 			<f:optionalBlock name="m2release.nexusSupport" title="Enable Nexus Pro support" checked="${descriptor.nexusSupport}" help="${rootURL}/plugin/m2release/help-globalConfig.html">
-				<f:entry title="Nexus URL" help="${rootURL}/plugin/m2release/help-NexusURL.html">
+				<f:entry title="Nexus URL" help="${rootURL}/plugin/m2release/help-nexusURL.html">
 					<f:textbox name="m2release.nexusURL" value="${descriptor.nexusURL}" 
 					           onchange="Form.findMatchingInput(this,'m2release.nexusPassword').onchange()" />
 				</f:entry>
-				<f:entry title="Nexus User" help="${rootURL}/plugin/m2release/help-NexusUserPass.html" >
+				<f:entry title="Nexus User" help="${rootURL}/plugin/m2release/help-nexusUserPass.html" >
 					<f:textbox name="m2release.nexusUser" value="${descriptor.nexusUser}" 
 					           onchange="Form.findMatchingInput(this,'m2release.nexusPassword').onchange()" />
 				</f:entry>
-				<f:entry title="Nexus Password" help="${rootURL}/plugin/m2release/help-NexusUserPass.html">
+				<f:entry title="Nexus Password" help="${rootURL}/plugin/m2release/help-nexusUserPass.html">
 					<f:password name="m2release.nexusPassword" value="${descriptor.nexusPassword}" 
 					            checkUrl="'${rootURL}/buildWrapper/M2ReleaseBuildWrapper/urlCheck?urlValue='+escape(Form.findMatchingInput(this,'m2release.nexusURL').value)+'&amp;usernameValue='+escape(Form.findMatchingInput(this,'m2release.nexusUser').value)+'&amp;passwordValue='+escape(Form.findMatchingInput(this,'m2release.nexusPassword').value)"
 					            checkMethod="post" />
