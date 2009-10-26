@@ -6,7 +6,7 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 	<l:layout>
 		<l:main-panel>
-			<f:form method="get" action="submit">
+			<f:form method="post" action="submit">
 				<f:section title="Perform Maven Release">
 					<f:optionalBlock name="specifyVersions" title="Specify release version(s)" checked="false">
 							<j:forEach var="m" items="${it.modules}">
