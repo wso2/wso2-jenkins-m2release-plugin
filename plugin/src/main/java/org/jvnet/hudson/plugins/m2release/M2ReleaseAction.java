@@ -89,6 +89,7 @@ public class M2ReleaseAction implements Action {
 
 	public String computeNextVersion(String version) {
 		/// XXX would be nice to use maven to do this...
+		/// tip: see DefaultVersionInfo.getNextVersion() in org.apache.maven.release:maven-release-manager
 		String retVal = computeReleaseVersion(version);
 		// get the integer after the last "."
 		int dotIdx = retVal.lastIndexOf('.');
