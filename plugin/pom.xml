@@ -10,10 +10,10 @@
 	<url>http://wiki.hudson-ci.org/display/HUDSON/M2+Release+Plugin</url>
 
 	<developers>
-	  <developer>
-	    <id>teilo</id>
-	    <name>James Nord</name>
-	  </developer>
+		<developer>
+			<id>teilo</id>
+			<name>James Nord</name>
+		</developer>
 	</developers>
 
 	<scm>
@@ -44,7 +44,7 @@
 		<dependency>
 			<groupId>org.jvnet.hudson.plugins.m2release</groupId>
 			<artifactId>nexus</artifactId>
-			<version>0.0.2</version>
+			<version>0.0.3-SNAPSHOT</version>
 		</dependency>
 	</dependencies>
 
