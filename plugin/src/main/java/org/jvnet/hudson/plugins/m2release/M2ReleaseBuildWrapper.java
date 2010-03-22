@@ -79,6 +79,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	private transient Map<String, String> versions;
 	private transient boolean             appendHudsonBuildNumber;
 	private transient String              repoDescription;
+	private transient String              scmUsername;
+	private transient String              scmPassword;
 	
 	public String                         releaseGoals        = DescriptorImpl.DEFAULT_RELEASE_GOALS;
 	
@@ -111,20 +113,29 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			mmSet = getModuleSet(build);
 			if (mmSet != null) {
 				originalGoals = mmSet.getGoals();
-				mmSet.setGoals(releaseGoals);
+				
+				String thisBuildGoals = releaseGoals;
 
 				if (versions != null) {
-					mmSet.setGoals(generateVersionString(build.getNumber()) + releaseGoals);
+					thisBuildGoals = generateVersionString(build.getNumber()) + thisBuildGoals;
 				}
-				else {
-					mmSet.setGoals(releaseGoals);
+				
+				if (scmUsername != null) {
+					thisBuildGoals = "-Dusername=" + scmUsername + " " + thisBuildGoals;
 				}
+				
+				if (scmPassword != null) {
+					thisBuildGoals = "-Dpassword=" + scmPassword + " " + thisBuildGoals;
+				}
+				
+				mmSet.setGoals(thisBuildGoals);
 			}
 			else {
 				// can this be so?
 				originalGoals = null;
 			}
 			mavenOpts = mmSet.getMavenOpts();
+			
 		}
 		
 		return new Environment() {
@@ -212,7 +223,14 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public void setRepoDescription(String repoDescription) {
 		this.repoDescription = repoDescription;
 	}
-
+	
+	public void setScmUsername(String scmUsername) {
+		this.scmUsername = scmUsername;
+	}
+	
+	public void setScmPassword(String scmPassword) {
+		this.scmPassword = scmPassword;
+	}
 
 	private String generateVersionString(int buildNumber) {
 		// -Dproject.rel.org.mycompany.group.project=version ....

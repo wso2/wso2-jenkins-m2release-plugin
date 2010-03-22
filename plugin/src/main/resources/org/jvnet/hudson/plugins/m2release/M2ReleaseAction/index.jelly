@@ -23,6 +23,14 @@
 								<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
 							</f:entry>
 					</f:optionalBlock>
+					<f:optionalBlock name="specifyScmCredentials" title="Specify SCM login/password" checked="false">
+						<f:entry title="Username">
+							<f:textbox name="scmUsername" value="" />
+						</f:entry>
+						<f:entry title="Password">
+							<f:password name="scmPassword" value="" />
+						</f:entry>
+					</f:optionalBlock>
 					<j:if test="${it.nexusSupportEnabled}">
 						<f:section title="Nexus Pro Support">
 							<f:optionalBlock name="closeNexusStage" title="Close Nexus Staging Repository" checked="true">
@@ -41,6 +49,7 @@
 					<f:submit value="${%Schedule Maven Release Build}"/>
 					</td></tr>
 				</f:section>
+				
 			</f:form>
 
 

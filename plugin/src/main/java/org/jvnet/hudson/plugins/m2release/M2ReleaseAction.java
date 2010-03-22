@@ -32,7 +32,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
-import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
@@ -136,6 +135,9 @@ public class M2ReleaseAction implements Action {
 		final boolean appendHudsonBuildNumber = httpParams.containsKey("appendHudsonBuildNumber"); //$NON-NLS-1$
 		final boolean closeNexusStage = httpParams.containsKey("closeNexusStage"); //$NON-NLS-1$
 		final String repoDescription = closeNexusStage ? ((String[])httpParams.get("repoDescription"))[0] : ""; //$NON-NLS-1$
+		final boolean specifyScmCredentials = httpParams.containsKey("specifyScmCredentials"); //$NON-NLS-1$
+		final String scmUsername = specifyScmCredentials ? ((String[])httpParams.get("scmUsername"))[0] : null; //$NON-NLS-1$
+		final String scmPassword = specifyScmCredentials ? ((String[])httpParams.get("scmPassword"))[0] : null; //$NON-NLS-1$
 		
 		if (httpParams.containsKey("specifyVersions")) {
 			versions = new HashMap<String,String>();
@@ -155,6 +157,8 @@ public class M2ReleaseAction implements Action {
 				m2Wrapper.setAppendHudsonBuildNumber(appendHudsonBuildNumber);
 				m2Wrapper.setCloseNexusStage(closeNexusStage);
 				m2Wrapper.setRepoDescription(repoDescription);
+				m2Wrapper.setScmUsername(scmUsername);
+				m2Wrapper.setScmPassword(scmPassword);
 			}
 		}
 		// redirect to status page
