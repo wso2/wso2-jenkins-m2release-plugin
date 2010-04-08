@@ -44,7 +44,7 @@
 		<dependency>
 			<groupId>org.jvnet.hudson.plugins.m2release</groupId>
 			<artifactId>nexus</artifactId>
-			<version>0.0.3-SNAPSHOT</version>
+			<version>0.0.3</version>
 		</dependency>
 	</dependencies>
 
