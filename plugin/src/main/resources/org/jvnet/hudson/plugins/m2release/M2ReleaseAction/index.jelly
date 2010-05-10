@@ -8,7 +8,10 @@
 		<l:main-panel>
 			<f:form method="post" action="submit">
 				<f:section title="Perform Maven Release">
-					<f:optionalBlock name="specifyVersions" title="Specify release version(s)" checked="false">
+					<f:entry title="Versioning mode" help="/plugin/m2release/help-actionRelease-versioningMode.html">
+						<f:radioBlock name="versioningMode" value="auto" title="Maven will decide the version" checked="${'auto' == it.versioningMode}">
+						</f:radioBlock>
+						<f:radioBlock name="versioningMode" value="specify_versions" title="Specify version(s)" checked="${'specify_versions' == it.versioningMode}">
 							<j:forEach var="m" items="${it.modules}">
 								<f:section title="${m.moduleName}">
 									<f:entry title="Release Version">
@@ -22,7 +25,20 @@
 							<f:entry title="Append Hudson Build Number">
 								<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
 							</f:entry>
-					</f:optionalBlock>
+						</f:radioBlock>
+						<f:radioBlock name="versioningMode" value="specify_version" title="Specify one version for all modules" checked="${'specify_version' == it.versioningMode}">
+							<f:entry title="Release Version">
+								<f:textbox name="releaseVersion" value="${it.computeReleaseVersion(it.rootModule.version)}" />
+							</f:entry>
+							<f:entry title="Development version">
+								<f:textbox name="developmentVersion" value="${it.computeNextVersion(it.rootModule.version)}" />
+							</f:entry>
+							<f:entry title="Append Hudson Build Number">
+								<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
+							</f:entry>
+						</f:radioBlock>
+					</f:entry>
+
 					<f:optionalBlock name="specifyScmCredentials" title="Specify SCM login/password" checked="false">
 						<f:entry title="Username">
 							<f:textbox name="scmUsername" value="" />
@@ -31,6 +47,16 @@
 							<f:password name="scmPassword" value="" />
 						</f:entry>
 					</f:optionalBlock>
+					
+					<f:optionalBlock name="specifyScmCommentPrefix" title="Specify custom SCM comment prefix" checked="${it.selectCustomScmCommentPrefix}" help="/plugin/m2release/help-actionRelease-specifyCustomScmCommentPrefix.html">
+						<f:entry title="Comment Prefix">
+							<f:textbox name="scmCommentPrefix" value="[maven-release-plugin]" />
+						</f:entry>
+						<f:entry title="Append Hudson Username" help="/plugin/m2release/help-actionRelease-appendHudsonUsername.html">
+							<f:checkbox name="appendHudsonUserName" checked="${it.selectAppendHudsonUsername}"/>
+						</f:entry>
+					</f:optionalBlock>
+
 					<j:if test="${it.nexusSupportEnabled}">
 						<f:section title="Nexus Pro Support">
 							<f:optionalBlock name="closeNexusStage" title="Close Nexus Staging Repository" checked="true">

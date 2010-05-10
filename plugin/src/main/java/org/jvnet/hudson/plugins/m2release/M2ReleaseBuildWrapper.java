@@ -81,14 +81,22 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	private transient String              repoDescription;
 	private transient String              scmUsername;
 	private transient String              scmPassword;
-	
-	public String                         releaseGoals        = DescriptorImpl.DEFAULT_RELEASE_GOALS;
-	
+	private transient String              scmCommentPrefix;
+	private transient boolean             appendHusonUserName;
+	private transient String              hudsonUserName;
 
+	public String                         releaseGoals        = DescriptorImpl.DEFAULT_RELEASE_GOALS;
+	public String                         versioning          = DescriptorImpl.DEFAULT_VERSIONING;
+	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
+	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
+	
 	@DataBoundConstructor
-	public M2ReleaseBuildWrapper(String releaseGoals) {
+	public M2ReleaseBuildWrapper(String releaseGoals, String versioning, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
 		super();
 		this.releaseGoals = releaseGoals;
+		this.versioning = versioning;
+		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
+		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 	}
 
 
@@ -126,6 +134,19 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				
 				if (scmPassword != null) {
 					thisBuildGoals = "-Dpassword=" + scmPassword + " " + thisBuildGoals;
+				}
+				
+				if (scmCommentPrefix != null) {
+					final StringBuilder sb = new StringBuilder();
+					sb.append("\"-DscmCommentPrefix=");
+					sb.append(scmCommentPrefix);
+					if(appendHusonUserName) {
+						sb.append(String.format("(%s)", hudsonUserName));
+					}
+					sb.append("\" ");
+					sb.append(thisBuildGoals);
+					
+					thisBuildGoals = sb.toString();
 				}
 				
 				mmSet.setGoals(thisBuildGoals);
@@ -232,6 +253,34 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		this.scmPassword = scmPassword;
 	}
 
+	public void setScmCommentPrefix(String scmCommentPrefix) {
+		this.scmCommentPrefix = scmCommentPrefix;
+	}
+	
+	public void setAppendHusonUserName(boolean appendHusonUserName) {
+		this.appendHusonUserName = appendHusonUserName;
+	}
+
+	public boolean isSelectCustomScmCommentPrefix() {
+		return selectCustomScmCommentPrefix;
+	}
+
+	public void setSelectCustomScmCommentPrefix(boolean selectCustomScmCommentPrefix) {
+		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
+	}
+
+	public boolean isSelectAppendHudsonUsername() {
+		return selectAppendHudsonUsername;
+	}
+
+	public void setSelectAppendHudsonUsername(boolean selectAppendHudsonUsername) {
+		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
+	}
+
+	public void setHudsonUserName(String hudsonUserName) {
+		this.hudsonUserName = hudsonUserName;
+	}
+
 	private String generateVersionString(int buildNumber) {
 		// -Dproject.rel.org.mycompany.group.project=version ....
 		StringBuilder sb = new StringBuilder();
@@ -281,7 +330,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	@Override
 	public Action getProjectAction(AbstractProject job) {
-		return new M2ReleaseAction((MavenModuleSet) job);
+		return new M2ReleaseAction((MavenModuleSet) job, versioning, selectCustomScmCommentPrefix, selectAppendHudsonUsername);
 	}
 
 	public static boolean hasReleasePermission(AbstractProject job) {
@@ -315,6 +364,14 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		                                                                      Messages._CreateReleasePermission_Description(),
 		                                                                      Hudson.ADMINISTER); 
 
+		public static final String     VERSIONING_AUTO = "auto";                         //$NON-NLS-1$
+		public static final String     VERSIONING_SPECIFY_VERSIONS = "specify_versions"; //$NON-NLS-1$
+		public static final String     VERSIONING_SPECIFY_VERSION = "specify_version";   //$NON-NLS-1$
+		public static final String     DEFAULT_VERSIONING = VERSIONING_AUTO;             //$NON-NLS-1$
+		
+		public static final boolean    DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX = false;
+		public static final boolean    DEFAULT_SELECT_APPEND_HUDSON_USERNAME    = false;
+		
 		private boolean nexusSupport  = false;
 		private String  nexusURL      = null;
 		private String  nexusUser     = "deployment";                                    //$NON-NLS-1$

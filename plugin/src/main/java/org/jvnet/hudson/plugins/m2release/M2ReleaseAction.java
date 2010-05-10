@@ -26,6 +26,7 @@ package org.jvnet.hudson.plugins.m2release;
 import hudson.maven.MavenModule;
 import hudson.maven.MavenModuleSet;
 import hudson.model.Action;
+import hudson.model.Hudson;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -36,6 +37,7 @@ import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
 
+import org.jvnet.hudson.plugins.m2release.M2ReleaseBuildWrapper.DescriptorImpl;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 
@@ -49,10 +51,15 @@ import org.kohsuke.stapler.StaplerResponse;
 public class M2ReleaseAction implements Action {
 
 	private MavenModuleSet project;
-
-
-	public M2ReleaseAction(MavenModuleSet project) {
+	private String versioningMode;
+	private boolean selectCustomScmCommentPrefix;
+	private boolean selectAppendHudsonUsername;
+	
+	public M2ReleaseAction(MavenModuleSet project, String versioningMode, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
 		this.project = project;
+		this.versioningMode = versioningMode;
+		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
+		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 	}
 
 
@@ -74,8 +81,36 @@ public class M2ReleaseAction implements Action {
 		return "m2release"; //$NON-NLS-1$
 	}
 
+	public String getVersioningMode() {
+		return versioningMode; 
+	}
+	
+	public void setVersioningMode(String versioningMode) {
+		this.versioningMode = versioningMode;
+	}
+	
+	public boolean isSelectCustomScmCommentPrefix() {
+		return selectCustomScmCommentPrefix;
+	}
+
+	public void setSelectCustomScmCommentPrefix(boolean selectCustomScmCommentPrefix) {
+		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
+	}
+
+	public boolean isSelectAppendHudsonUsername() {
+		return selectAppendHudsonUsername;
+	}
+
+	public void setSelectAppendHudsonUsername(boolean selectAppendHudsonUsername) {
+		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
+	}
+
 	public Collection<MavenModule> getModules() {
 		return project.getModules();
+	}
+	
+	public MavenModule getRootModule() {
+		return project.getRootModule();
 	}
 	
 	public String computeReleaseVersion(String version) {
@@ -134,18 +169,35 @@ public class M2ReleaseAction implements Action {
 		
 		final boolean appendHudsonBuildNumber = httpParams.containsKey("appendHudsonBuildNumber"); //$NON-NLS-1$
 		final boolean closeNexusStage = httpParams.containsKey("closeNexusStage"); //$NON-NLS-1$
-		final String repoDescription = closeNexusStage ? ((String[])httpParams.get("repoDescription"))[0] : ""; //$NON-NLS-1$
+		final String repoDescription = closeNexusStage ? getString("repoDescription", httpParams) : ""; //$NON-NLS-1$
 		final boolean specifyScmCredentials = httpParams.containsKey("specifyScmCredentials"); //$NON-NLS-1$
-		final String scmUsername = specifyScmCredentials ? ((String[])httpParams.get("scmUsername"))[0] : null; //$NON-NLS-1$
-		final String scmPassword = specifyScmCredentials ? ((String[])httpParams.get("scmPassword"))[0] : null; //$NON-NLS-1$
+		final String scmUsername = specifyScmCredentials ? getString("scmUsername", httpParams) : null; //$NON-NLS-1$
+		final String scmPassword = specifyScmCredentials ? getString("scmPassword", httpParams) : null; //$NON-NLS-1$
+		final boolean specifyScmCommentPrefix = httpParams.containsKey("specifyScmCommentPrefix"); //$NON-NLS-1$
+		final String scmCommentPrefix = specifyScmCommentPrefix ? getString("scmCommentPrefix", httpParams) : null; //$NON-NLS-1$
+		final boolean appendHusonUserName = specifyScmCommentPrefix && httpParams.containsKey("appendHudsonUserName"); //$NON-NLS-1$
 		
-		if (httpParams.containsKey("specifyVersions")) {
+		final String versioningMode = getString("versioningMode", httpParams);
+		
+		if (DescriptorImpl.VERSIONING_SPECIFY_VERSIONS.equals(versioningMode)) {
 			versions = new HashMap<String,String>();
 			for (Object key : httpParams.keySet()) {
 				String keyStr = (String)key;
 				if (keyStr.startsWith("-Dproject.")) {
-					versions.put(keyStr, (String)(((Object[])httpParams.get(key))[0]));
+					versions.put(keyStr, getString(keyStr, httpParams));
 				}
+			}
+		} else if (DescriptorImpl.VERSIONING_SPECIFY_VERSION.equals(versioningMode)) {
+			versions = new HashMap<String, String>();
+
+			final String releaseVersion = getString("releaseVersion", httpParams); //$NON-NLS-1$
+			final String developmentVersion = getString("developmentVersion", httpParams); //$NON-NLS-1$
+
+			for(MavenModule mavenModule : getModules()) {
+				final String name = mavenModule.getModuleName().toString();
+				
+				versions.put(String.format("-Dproject.dev.%s", name), developmentVersion); //$NON-NLS-1$
+				versions.put(String.format("-Dproject.rel.%s", name), releaseVersion); //$NON-NLS-1$
 			}
 		}
 		
@@ -159,10 +211,23 @@ public class M2ReleaseAction implements Action {
 				m2Wrapper.setRepoDescription(repoDescription);
 				m2Wrapper.setScmUsername(scmUsername);
 				m2Wrapper.setScmPassword(scmPassword);
+				m2Wrapper.setScmCommentPrefix(scmCommentPrefix);
+				m2Wrapper.setAppendHusonUserName(appendHusonUserName);
+				m2Wrapper.setHudsonUserName(Hudson.getAuthentication().getName());
 			}
 		}
 		// redirect to status page
 		resp.sendRedirect(project.getAbsoluteUrl());
 	}
 
+	/**
+	 * returns the value of the key as a String. if multiple values
+	 * have been submitted, the first one will be returned.
+	 * @param key
+	 * @param httpParams
+	 * @return
+	 */
+	private String getString(String key, Map<?,?> httpParams) {
+		return (String)(((Object[])httpParams.get(key))[0]);
+	}
 }
