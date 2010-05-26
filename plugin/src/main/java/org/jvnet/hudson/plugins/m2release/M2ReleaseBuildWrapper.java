@@ -94,7 +94,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public M2ReleaseBuildWrapper(String releaseGoals, String defaultVersioningMode, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
 		super();
 		this.releaseGoals = releaseGoals;
-		this.defaultVersioningMode = versioning;
+		this.defaultVersioningMode = defaultVersioningMode;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 	}
