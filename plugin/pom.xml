@@ -4,7 +4,7 @@
 	<groupId>org.jvnet.hudson.plugins.m2release</groupId>
 	<artifactId>m2release</artifactId>
 	<packaging>hpi</packaging>
-	<version>0.3.5-SNAPSHOT</version>
+	<version>0.4.0-SNAPSHOT</version>
 	<name>Hudson Maven Release Plug-in Plug-in</name>
 	<description>A plug-in that enables you to perform releases using the maven-release-plugin from Hudson.</description>
 	<url>http://wiki.hudson-ci.org/display/HUDSON/M2+Release+Plugin</url>
@@ -13,6 +13,10 @@
 		<developer>
 			<id>teilo</id>
 			<name>James Nord</name>
+		</developer>
+		<developer>
+			<id>m68k</id>
+			<name>Christian Sl</name>
 		</developer>
 	</developers>
 

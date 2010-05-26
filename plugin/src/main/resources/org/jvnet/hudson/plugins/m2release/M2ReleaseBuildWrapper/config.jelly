@@ -11,8 +11,8 @@
 		<f:textbox field="releaseGoals" value="${h.defaulted(instance.releaseGoals,descriptor.DEFAULT_RELEASE_GOALS)}"/>
 	</f:entry>
 	
-	<f:entry title="Preselect versioning mode" help="/plugin/m2release/help-projectConfig-versioningMode.html">
-		<select name="versioning">
+	<f:entry title="Default versioning mode" help="/plugin/m2release/help-projectConfig-versioningMode.html">
+		<select name="defaultVersioningMode">
 			<f:option value="${descriptor.VERSIONING_AUTO}" selected="${descriptor.VERSIONING_AUTO == h.defaulted(instance.versioning,descriptor.DEFAULT_VERSIONING)}">None</f:option>
 			<f:option value="${descriptor.VERSIONING_SPECIFY_VERSIONS}" selected="${descriptor.VERSIONING_SPECIFY_VERSIONS == h.defaulted(instance.versioning,descriptor.DEFAULT_VERSIONING)}">Specify version(s)</f:option>
 			<f:option value="${descriptor.VERSIONING_SPECIFY_VERSION}" selected="${descriptor.VERSIONING_SPECIFY_VERSION == h.defaulted(instance.versioning,descriptor.DEFAULT_VERSIONING)}">Specify one version for all modules</f:option>

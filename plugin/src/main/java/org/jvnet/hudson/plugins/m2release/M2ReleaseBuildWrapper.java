@@ -86,15 +86,15 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	private transient String              hudsonUserName;
 
 	public String                         releaseGoals        = DescriptorImpl.DEFAULT_RELEASE_GOALS;
-	public String                         versioning          = DescriptorImpl.DEFAULT_VERSIONING;
+	public String                         defaultVersioningMode          = DescriptorImpl.DEFAULT_VERSIONING;
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
 	
 	@DataBoundConstructor
-	public M2ReleaseBuildWrapper(String releaseGoals, String versioning, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
+	public M2ReleaseBuildWrapper(String releaseGoals, String defaultVersioningMode, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
 		super();
 		this.releaseGoals = releaseGoals;
-		this.versioning = versioning;
+		this.defaultVersioningMode = versioning;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 	}
@@ -330,7 +330,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	@Override
 	public Action getProjectAction(AbstractProject job) {
-		return new M2ReleaseAction((MavenModuleSet) job, versioning, selectCustomScmCommentPrefix, selectAppendHudsonUsername);
+		return new M2ReleaseAction((MavenModuleSet) job, defaultVersioningMode, selectCustomScmCommentPrefix, selectAppendHudsonUsername);
 	}
 
 	public static boolean hasReleasePermission(AbstractProject job) {
