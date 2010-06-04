@@ -29,7 +29,7 @@
 	<parent>
 		<groupId>org.jvnet.hudson.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>1.318</version>
+		<version>1.360</version>
 	</parent>
 
 	<licenses>

@@ -1,0 +1,37 @@
+<stagingProfiles>
+  <data>
+    <stagingProfile>
+      <resourceURI>http://localhost:8081/nexus/service/local/staging/profiles/3e1e1bad64f</resourceURI>
+      <id>3e1e1bad64f</id>
+      <name>test</name>
+      <repositoryTemplateId>default_hosted_release</repositoryTemplateId>
+      <repositoryType>maven2</repositoryType>
+      <repositoryTargetId>1</repositoryTargetId>
+      <inProgress>true</inProgress>
+      <order>0</order>
+      <deployURI>http://localhost:8081/nexus/service/local/staging/deploy/maven2</deployURI>
+      <stagingRepositoryIds>
+        <string>test-001</string>
+        <string>test-005</string>
+      </stagingRepositoryIds>
+      <stagedRepositoryIds>
+        <string>test-002</string>
+        <string>test-003</string>
+        <string>test-004</string>
+      </stagedRepositoryIds>
+      <targetGroups>
+        <string>public</string>
+      </targetGroups>
+      <finishNotifyRoles/>
+      <promotionNotifyRoles/>
+      <dropNotifyRoles/>
+      <closeRuleSets/>
+      <promoteRuleSets/>
+      <promotionTargetRepository>releases</promotionTargetRepository>
+      <mode>BOTH</mode>
+      <finishNotifyCreator>true</finishNotifyCreator>
+      <promotionNotifyCreator>true</promotionNotifyCreator>
+      <dropNotifyCreator>true</dropNotifyCreator>
+    </stagingProfile>
+  </data>
+</stagingProfiles>
