@@ -23,6 +23,8 @@
  */
 package org.jvnet.hudson.plugins.m2release.nexus;
 
+import hudson.util.FormValidation;
+
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -31,14 +33,19 @@ import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 /**
  * The Stage client acts as the interface to Nexus Pro staging via the Nexus REST APIs.
@@ -95,40 +102,41 @@ public class StageClient {
 	}
 
 	/**
-	 * Gets an authentication token from Nexus.
+	 * Check if we have the required permissions for nexus staging.
 	 * 
 	 * @return
 	 * @throws IOException 
 	 * @throws XPathExpressionException 
+	 * @throws ParserConfigurationException 
+	 * @throws SAXException 
 	 */
-	public String checkAuthentication() throws IOException, XPathExpressionException {
+	public void checkAuthentication() throws IOException, XPathExpressionException, ParserConfigurationException, SAXException {
 		// ${nexusURL}/service/local/status
 		URL url = new URL(nexusURL.toString() + "/service/local/status");
 		URLConnection conn = url.openConnection();	
 		//addAuthHeader(conn);
-		InputSource inputSource = new InputSource(conn.getInputStream());
+		DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+		Document doc = builder.parse(conn.getInputStream());
 		/*
 		 * check for the following permissions:
-		 * nexus:stagingprofiles
-		 * nexus:stagingfinish
-		 * nexus:stagingpromote
-		 * nexus:stagingdrop
 		 */
-		boolean profilesPerm, finishPerm, closePerm, dropPerm;
+		String[] requiredPerms = new String[] { "nexus:stagingprofiles",
+		                                        "nexus:stagingfinish",
+		                                        "nexus:stagingpromote",
+		                                        "nexus:stagingdrop" };		
 		
 		XPath xpath = XPathFactory.newInstance().newXPath();
-		String expression = "//clientPermissions/permissions/permission";
-		NodeList nodes = (NodeList) xpath.evaluate(expression, inputSource, XPathConstants.NODESET);
-		for (int i = 0; i < nodes.getLength(); i++) {
-			Node node = nodes.item(i);
-			// permission has id and value.
-			// check if id is one listed above then value != 0
-			NodeList innerNode = node.getChildNodes();
-			for (int j = 0; j < innerNode.getLength(); j++) {
-				System.out.println(innerNode.item(j).getTextContent().trim());
+		for (String perm : requiredPerms) {
+			String expression = "//clientPermissions/permissions/permission[id="+perm+"]/id";
+			String value = xpath.evaluate(expression, doc);
+			if (value == null) {
+				throw new IOException("Invalid reponse from server - is the URL a nexus server?");
+			}
+			int val = Integer.parseInt(value);
+			if (val == 0) {
+				throw new IOException("user has insufficient privs");
 			}
 		}
-		return null;
 	}
 
 	public List<String> getOpenStageIDs() throws IOException, XPathExpressionException {
