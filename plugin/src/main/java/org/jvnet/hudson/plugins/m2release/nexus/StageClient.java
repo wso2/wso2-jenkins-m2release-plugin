@@ -23,8 +23,6 @@
  */
 package org.jvnet.hudson.plugins.m2release.nexus;
 
-import hudson.util.FormValidation;
-
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -113,29 +111,38 @@ public class StageClient {
 	public void checkAuthentication() throws IOException, XPathExpressionException, ParserConfigurationException, SAXException {
 		// ${nexusURL}/service/local/status
 		URL url = new URL(nexusURL.toString() + "/service/local/status");
-		URLConnection conn = url.openConnection();	
-		//addAuthHeader(conn);
-		DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-		Document doc = builder.parse(conn.getInputStream());
-		/*
-		 * check for the following permissions:
-		 */
-		String[] requiredPerms = new String[] { "nexus:stagingprofiles",
-		                                        "nexus:stagingfinish",
-		                                        "nexus:stagingpromote",
-		                                        "nexus:stagingdrop" };		
-		
-		XPath xpath = XPathFactory.newInstance().newXPath();
-		for (String perm : requiredPerms) {
-			String expression = "//clientPermissions/permissions/permission[id="+perm+"]/id";
-			String value = xpath.evaluate(expression, doc);
-			if (value == null) {
-				throw new IOException("Invalid reponse from server - is the URL a nexus server?");
+		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+		addAuthHeader(conn);
+		int status = conn.getResponseCode();
+		if (status == 200) {
+			DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+			Document doc = builder.parse(conn.getInputStream());
+			/*
+			 * check for the following permissions:
+			 */
+			String[] requiredPerms = new String[] { "nexus:stagingprofiles",
+			                                        "nexus:stagingfinish",
+			                                        "nexus:stagingpromote",
+			                                        "nexus:stagingdrop" };		
+			
+			XPath xpath = XPathFactory.newInstance().newXPath();
+			for (String perm : requiredPerms) {
+				String expression = "//clientPermissions/permissions/permission[id=\""+perm+"\"]/value";
+				Node node = (Node) xpath.evaluate(expression, doc, XPathConstants.NODE);
+				if (node == null) {
+					throw new IOException("Invalid reponse from server - is the URL a nexus server?");
+				}
+				int val = Integer.parseInt(node.getTextContent());
+				if (val == 0) {
+					throw new IOException("user has insufficient privs");
+				}
 			}
-			int val = Integer.parseInt(value);
-			if (val == 0) {
-				throw new IOException("user has insufficient privs");
-			}
+		}
+		else if (status == 401) {
+			throw new IOException("Incorrect Crediantials for " + url.toString());
+		}
+		else {
+			throw new IOException("Server returned error code " + status + " for " + url.toString());
 		}
 	}
 
