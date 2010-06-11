@@ -23,6 +23,8 @@
  */
 package org.jvnet.hudson.plugins.m2release.nexus;
 
+import hudson.util.IOUtils;
+
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -30,6 +32,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -53,9 +56,12 @@ import org.xml.sax.SAXException;
  */
 public class StageClient {
 
+	private Logger log = Logger.getLogger(StageClient.class.getName());
+	
 	private URL nexusURL;
 	private String username;
 	private String password;
+	
 
 	public StageClient(URL nexusURL, String username, String password) {
 		this.nexusURL = nexusURL;
@@ -66,17 +72,32 @@ public class StageClient {
 	/**
 	 * Get the ID for the Staging repository that holds the specified GAV.
 	 * 
-	 * @param groupId
-	 * @param artifactId
-	 * @param version
-	 * @return
+	 * @param groupId groupID to search for.
+	 * @param artifactId artifactID to search for.
+	 * @param version version of the group/artifact to search for <em>[currently ignored]</em>.
+	 * @return the stageID or null if no machine stage was found.
+	 * @throws IOException 
+	 * @throws XPathExpressionException 
 	 */
-	public String getOpenStageID(String groupId, String artifactId, String version) {
+	public String getOpenStageID(String group, String artifact, String version) throws XPathExpressionException, IOException {
 		// to get stage URLs:
 		// ${nexusURL}/service/local/staging/profiles
 		// to check contents:
-
-		return null;
+		List<String> stageIDs = getOpenStageIDs();
+		String stageID = null;
+		for (String stage : stageIDs) {
+			if (checkStageForGAV(stage, group, artifact, version)) {
+				if (stageID == null) {
+					stageID = stage;
+				}
+				else {
+					// warn that multiple stages match!
+					System.err.println("Found a matching stage (" + stage + ") for " + group + ':' + artifact + " but already found a matching one (" + stageID + ").");
+				}
+				
+			}
+		}
+		return stageID;
 	}
 
 	/**
@@ -86,7 +107,13 @@ public class StageClient {
 	 */
 	public void closeStage(String stageID) {
 		// url to close is ${nexusURL}/service/local/staging/profiles/${stageID}/finish
-		// what is the return - just a 200 OK?
+		// what is the return - just a 200 OK?		
+		//URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles/"+profileID+"/finish");
+		// POST needs a payload.
+		// JSON looks like {"data":{"stagedRepositoryId":"abc-004","description":"close description"}}
+		// needs content length
+		// and also content-type (application/json)?
+		// response is http 201 created.
 	}
 
 	/**
@@ -96,7 +123,10 @@ public class StageClient {
 	 */
 	public void dropStage(String stageID) {
 		// ${nexusURL}/service/local/staging/profiles/${stageID}/drop
-		// what is the return - just a 200 OK?
+		// POST /nexus/service/local/staging/profiles/{profileID}/drop?undefined
+		// payload is 
+		// {"data":{"stagedRepositoryId":"abc-003","description":"drop descr"}}
+		// {"data":{"stagedRepositoryId":"abc-003","description":"drop descr"}}
 	}
 
 	/**
@@ -122,7 +152,7 @@ public class StageClient {
 			 */
 			String[] requiredPerms = new String[] { "nexus:stagingprofiles",
 			                                        "nexus:stagingfinish",
-			                                        "nexus:stagingpromote",
+			                                        //"nexus:stagingpromote",
 			                                        "nexus:stagingdrop" };		
 			
 			XPath xpath = XPathFactory.newInstance().newXPath();
@@ -138,11 +168,15 @@ public class StageClient {
 				}
 			}
 		}
-		else if (status == 401) {
-			throw new IOException("Incorrect Crediantials for " + url.toString());
-		}
 		else {
-			throw new IOException("Server returned error code " + status + " for " + url.toString());
+			// drain the output to be nice.
+			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+			if (status == 401) {
+				throw new IOException("Incorrect Crediantials for " + url.toString());
+			}
+			else {
+				throw new IOException("Server returned error code " + status + " for " + url.toString());
+			}
 		}
 	}
 
@@ -158,6 +192,7 @@ public class StageClient {
 		NodeList nodes = (NodeList) xpath.evaluate(expression, inputSource, XPathConstants.NODESET);
 		for (int i = 0; i < nodes.getLength(); i++) {
 			Node node = nodes.item(i);
+			// XXX need to also get the stage profile
 			openStages.add(node.getNodeValue());
 		}
 		return openStages;
@@ -176,14 +211,31 @@ public class StageClient {
 	    throws MalformedURLException {
 		// do we always know the version???
 		// to browse an open repo /service/local/repositories/${stageID}/content/...
+		// the stage repos are not listed via a call to /service/local/repositories/ but are in existence!
 		boolean found = false;
-		URL url = new URL(nexusURL.toString() + "/service/local/repositories/" + stageID + group.replace('.', '/') + '/');
+		URL url;
+		if (version == null) {
+			url = new URL(nexusURL.toString() + "/service/local/repositories/" + stageID + "/content/"+ group.replace('.', '/') + '/' + artifact + "/?isLocal");
+		}
+		else {
+			url = new URL(nexusURL.toString() + "/service/local/repositories/" + stageID + "/content/"+ group.replace('.', '/') + '/' + artifact + '/' + version + "/?isLocal");
+		}
 		try {
 			HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 			addAuthHeader(conn);
-			conn.getResponseCode();
-			url.getContent();
-			found = true;
+			conn.setRequestMethod("HEAD");
+			int response = conn.getResponseCode();
+			if (response == HttpURLConnection.HTTP_OK) {
+				// we found our baby - may be a different version but we don't always have that to hand (if Maven did the auto numbering)
+				found = true;
+			}
+			else if (response == HttpURLConnection.HTTP_NOT_FOUND) {
+				// not this repo
+			}
+			else {
+				System.err.println("Server returned HTTP Status " + response );
+			}
+			conn.disconnect();
 		}
 		catch (IOException ex) {
 			// some debug message - but likely to happen for a 404.
