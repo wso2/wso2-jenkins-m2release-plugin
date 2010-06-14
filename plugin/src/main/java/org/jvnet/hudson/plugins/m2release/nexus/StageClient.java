@@ -26,10 +26,12 @@ package org.jvnet.hudson.plugins.m2release.nexus;
 import hudson.util.IOUtils;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -45,7 +47,6 @@ import javax.xml.xpath.XPathFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 /**
@@ -78,39 +79,68 @@ public class StageClient {
 	 * @return the stageID or null if no machine stage was found.
 	 * @throws IOException 
 	 * @throws XPathExpressionException 
+	 * @throws ParserConfigurationException 
+	 * @throws SAXException 
 	 */
-	public String getOpenStageID(String group, String artifact, String version) throws XPathExpressionException, IOException {
+	public Stage getOpenStageID(String group, String artifact, String version) throws XPathExpressionException, IOException, SAXException, ParserConfigurationException {
 		// to get stage URLs:
 		// ${nexusURL}/service/local/staging/profiles
 		// to check contents:
-		List<String> stageIDs = getOpenStageIDs();
-		String stageID = null;
-		for (String stage : stageIDs) {
-			if (checkStageForGAV(stage, group, artifact, version)) {
-				if (stageID == null) {
-					stageID = stage;
+		List<Stage> stages = getOpenStageIDs();
+		Stage stage = null;
+		for (Stage testStage : stages) {
+			if (checkStageForGAV(testStage, group, artifact, version)) {
+				if (stage == null) {
+					stage = testStage;
 				}
 				else {
 					// warn that multiple stages match!
-					System.err.println("Found a matching stage (" + stage + ") for " + group + ':' + artifact + " but already found a matching one (" + stageID + ").");
+					System.err.println("Found a matching stage (" + testStage + ") for " + group + ':' + artifact + " but already found a matching one (" + stage + ").");
 				}
 				
 			}
 		}
-		return stageID;
+		return stage;
 	}
 
 	/**
 	 * Close the stage id with the specified ID.
 	 * 
 	 * @param stageID
+	 * @throws IOException 
 	 */
-	public void closeStage(String stageID) {
+	public void closeStage(Stage stage, String description) throws IOException {
 		// url to close is ${nexusURL}/service/local/staging/profiles/${stageID}/finish
 		// what is the return - just a 200 OK?		
-		//URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles/"+profileID+"/finish");
-		// POST needs a payload.
+		URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles/"+stage.getProfileID()+"/finish");
+		
 		// JSON looks like {"data":{"stagedRepositoryId":"abc-004","description":"close description"}}
+		String payload = String.format("<?xml version=\"1.0\" encoding=\"UTF-8\"?><promoteRequest><data><stagedRepositoryId>%s</stagedRepositoryId><description><![CDATA[%s]]></description></data></promoteRequest>",
+				stage.getStageID(), description);
+		byte[] payloadBytes = payload.getBytes("UTF-8");
+		int contentLen = payloadBytes.length;
+		
+		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+		addAuthHeader(conn);
+		conn.setRequestProperty("Content-Length", Integer.toString(contentLen));
+		conn.setRequestProperty("Content-Type", "application/xml; charset=UTF-8");
+
+		conn.setRequestMethod("POST");
+		conn.setDoOutput(true);
+		
+		OutputStream out = conn.getOutputStream();
+		out.write(payloadBytes);
+		out.flush();
+		
+		int status = conn.getResponseCode();
+		if (status == 201) {
+			// everything ok.
+			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+		}
+		else {
+			System.err.println("Server returned HTTP Status " + status );
+			throw new IOException(String.format("Failed to close nexus stage(%s) server responded with status:%s",stage.toString(),Integer.toString(status)));
+		}
 		// needs content length
 		// and also content-type (application/json)?
 		// response is http 201 created.
@@ -121,7 +151,7 @@ public class StageClient {
 	 * 
 	 * @param stageID
 	 */
-	public void dropStage(String stageID) {
+	public void dropStage(Stage stage) {
 		// ${nexusURL}/service/local/staging/profiles/${stageID}/drop
 		// POST /nexus/service/local/staging/profiles/{profileID}/drop?undefined
 		// payload is 
@@ -180,20 +210,28 @@ public class StageClient {
 		}
 	}
 
-	public List<String> getOpenStageIDs() throws IOException, XPathExpressionException {
-		List<String> openStages = new ArrayList<String>();
+	public List<Stage> getOpenStageIDs() throws IOException, XPathExpressionException, SAXException, ParserConfigurationException {
+		List<Stage> openStages = new ArrayList<Stage>();
 		URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles");
-		String expression = "//stagingRepositoryIds/string/text()";
-		// String expression = "string";
-		XPath xpath = XPathFactory.newInstance().newXPath();
-		URLConnection conn = url.openConnection();	
-		addAuthHeader(conn);
-		InputSource inputSource = new InputSource(conn.getInputStream());
-		NodeList nodes = (NodeList) xpath.evaluate(expression, inputSource, XPathConstants.NODESET);
-		for (int i = 0; i < nodes.getLength(); i++) {
-			Node node = nodes.item(i);
-			// XXX need to also get the stage profile
-			openStages.add(node.getNodeValue());
+		
+		Document doc = getDocument(url);
+		
+		String profileExpression = "//stagingProfile/id";
+		XPath xpathProfile = XPathFactory.newInstance().newXPath();
+		NodeList profileNodes = (NodeList) xpathProfile.evaluate(profileExpression, doc, XPathConstants.NODESET);
+		for (int i = 0; i < profileNodes.getLength(); i++) {
+			Node profileNode = profileNodes.item(i);
+			String profileID = profileNode.getTextContent();
+			
+			String statgeExpression = "../stagingRepositoryIds/string";
+			XPath xpathStage = XPathFactory.newInstance().newXPath();
+			NodeList stageNodes = (NodeList) xpathStage.evaluate(statgeExpression, profileNode, XPathConstants.NODESET);
+			for (int j = 0; j < stageNodes.getLength(); j++) {
+				Node stageNode = stageNodes.item(j);
+				// XXX need to also get the stage profile
+				openStages.add(new Stage(profileID, stageNode.getTextContent()));
+			}
+			
 		}
 		return openStages;
 	}
@@ -207,7 +245,7 @@ public class StageClient {
 		 conn.setRequestProperty ("Authorization", "Basic " + encodedAuth);
 	}
 	
-	public boolean checkStageForGAV(String stageID, String group, String artifact, String version)
+	public boolean checkStageForGAV(Stage stage, String group, String artifact, String version)
 	    throws MalformedURLException {
 		// do we always know the version???
 		// to browse an open repo /service/local/repositories/${stageID}/content/...
@@ -215,10 +253,10 @@ public class StageClient {
 		boolean found = false;
 		URL url;
 		if (version == null) {
-			url = new URL(nexusURL.toString() + "/service/local/repositories/" + stageID + "/content/"+ group.replace('.', '/') + '/' + artifact + "/?isLocal");
+			url = new URL(nexusURL.toString() + "/service/local/repositories/" + stage.getStageID() + "/content/"+ group.replace('.', '/') + '/' + artifact + "/?isLocal");
 		}
 		else {
-			url = new URL(nexusURL.toString() + "/service/local/repositories/" + stageID + "/content/"+ group.replace('.', '/') + '/' + artifact + '/' + version + "/?isLocal");
+			url = new URL(nexusURL.toString() + "/service/local/repositories/" + stage.getStageID() + "/content/"+ group.replace('.', '/') + '/' + artifact + '/' + version + "/?isLocal");
 		}
 		try {
 			HttpURLConnection conn = (HttpURLConnection)url.openConnection();
@@ -243,4 +281,24 @@ public class StageClient {
 		return found;
 	}
 
+	private Document getDocument(URL url) throws IOException, SAXException, ParserConfigurationException {
+		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+		addAuthHeader(conn);
+		int status = conn.getResponseCode();
+		if (status == 200) {
+			DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+			Document doc = builder.parse(conn.getInputStream());
+			return doc;
+		}
+		else {
+			// drain the output to be nice.
+			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+			if (status == 401) {
+				throw new IOException("Incorrect Crediantials for " + url.toString());
+			}
+			else {
+				throw new IOException("Server returned error code " + status + " for " + url.toString());
+			}
+		}
+	}
 }
