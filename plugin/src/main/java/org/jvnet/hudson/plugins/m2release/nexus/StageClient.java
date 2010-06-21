@@ -27,42 +27,49 @@ import hudson.util.IOUtils;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathException;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import org.apache.commons.codec.binary.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 /**
- * The Stage client acts as the interface to Nexus Pro staging via the Nexus
- * REST APIs.
+ * The Stage client acts as the interface to Nexus Pro staging via the Nexus REST APIs.
  * 
  * @author James Nord
  * @version 0.5
  */
 public class StageClient {
 
-	private Logger log = Logger.getLogger(StageClient.class.getName());
+	private Logger log = LoggerFactory.getLogger(StageClient.class);
 
 	private URL nexusURL;
 	private String username;
 	private String password;
 
+	/**
+	 * Create a new StageClient to handle communicating to a Nexus Pro server Staging suite.
+	 * @param nexusURL the base URL for the Nexus server.
+	 * @param username user name to use with staging privileges.
+	 * @param password password for the user.
+	 */
 	public StageClient(URL nexusURL, String username, String password) {
 		this.nexusURL = nexusURL;
 		this.username = username;
@@ -73,38 +80,26 @@ public class StageClient {
 	 * Get the ID for the Staging repository that holds the specified GAV.
 	 * 
 	 * @param groupId
-	 *            groupID to search for.
+	 *        groupID to search for.
 	 * @param artifactId
-	 *            artifactID to search for.
+	 *        artifactID to search for.
 	 * @param version
-	 *            version of the group/artifact to search for
-	 *            <em>[currently ignored]</em>.
+	 *        version of the group/artifact to search for <em>[currently ignored]</em>.
 	 * @return the stageID or null if no machine stage was found.
-	 * @throws IOException
-	 * @throws XPathExpressionException
-	 * @throws ParserConfigurationException
-	 * @throws SAXException
+	 * @throws StageException if any issue occurred whilst locting the open stage.
 	 */
-	public Stage getOpenStageID(String group, String artifact, String version)
-			throws XPathExpressionException, IOException, SAXException,
-			ParserConfigurationException {
-		// to get stage URLs:
-		// ${nexusURL}/service/local/staging/profiles
-		// to check contents:
+	public Stage getOpenStageID(String group, String artifact, String version) throws StageException {
 		List<Stage> stages = getOpenStageIDs();
 		Stage stage = null;
 		for (Stage testStage : stages) {
 			if (checkStageForGAV(testStage, group, artifact, version)) {
 				if (stage == null) {
 					stage = testStage;
-				} else {
-					// warn that multiple stages match!
-					System.err.println("Found a matching stage (" + testStage
-							+ ") for " + group + ':' + artifact
-							+ " but already found a matching one (" + stage
-							+ ").");
 				}
-
+				else {
+					// multiple stages match!!!
+					log.warn("Found a matching stage ({}) for {}:{} but already found a matchine one ({})", new Object[] {testStage, group, artifact, stage});
+				}
 			}
 		}
 		return stage;
@@ -113,92 +108,39 @@ public class StageClient {
 	/**
 	 * Close the specified stage.
 	 * 
-	 * @param stage the stage to close.
-	 * @throws IOException
+	 * @param stage
+	 *        the stage to close.
+	 * @throws StageException
+	 *         if any issue occurred whilst closing the stage.
 	 */
-	public void closeStage(Stage stage, String description) throws IOException {
-		// url to close is
-		// ${nexusURL}/service/local/staging/profiles/${stageID}/finish
-		// what is the return - just a 200 OK?
-		URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles/" + stage.getProfileID()
-		                  + "/finish");
-
-		// JSON looks like
-		// {"data":{"stagedRepositoryId":"abc-004","description":"close description"}}
-		String payload = String.format("<?xml version=\"1.0\" encoding=\"UTF-8\"?><promoteRequest><data><stagedRepositoryId>%s</stagedRepositoryId><description><![CDATA[%s]]></description></data></promoteRequest>",
-		                               stage.getStageID(), description);
-		byte[] payloadBytes = payload.getBytes("UTF-8");
-		int contentLen = payloadBytes.length;
-
-		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-		addAuthHeader(conn);
-		conn.setRequestProperty("Content-Length", Integer.toString(contentLen));
-		conn.setRequestProperty("Content-Type", "application/xml; charset=UTF-8");
-
-		conn.setRequestMethod("POST");
-		conn.setDoOutput(true);
-
-		OutputStream out = conn.getOutputStream();
-		out.write(payloadBytes);
-		out.flush();
-
-		int status = conn.getResponseCode();
-		if (status == 201) {
-			// everything ok.
-			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
-		}
-		else {
-			System.err.println("Server returned HTTP Status " + status);
-			throw new IOException(String.format("Failed to close nexus stage(%s) server responded with status:%s",
-			                                    stage.toString(), Integer.toString(status)));
-		}
-		// needs content length
-		// and also content-type (application/json)?
-		// response is http 201 created.
+	public void closeStage(Stage stage, String description) throws StageException {
+		performStageAction(StageAction.CLOSE, stage, description);
 	}
 
 	/**
-	 * Drop the stage from nexus staging.
+	 * Drop the stage from Nexus staging.
 	 * 
-	 * @param stage the Stage to drop.
-	 * @throws IOException 
+	 * @param stage
+	 *        the Stage to drop.
+	 * @throws StageException
+	 *         if any issue occurred whilst dropping the stage.
 	 */
-	public void dropStage(Stage stage) throws IOException {
-		// ${nexusURL}/service/local/staging/profiles/${stageID}/drop
-		// POST /nexus/service/local/staging/profiles/{profileID}/drop?undefined
-		// payload is
-		// {"data":{"stagedRepositoryId":"abc-003","description":"drop descr"}}
-		// {"data":{"stagedRepositoryId":"abc-003","description":"drop descr"}}
-		URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles/" + stage.getProfileID()
-		                  + "/finish");
-		String payload = String.format("<?xml version=\"1.0\" encoding=\"UTF-8\"?><promoteRequest><data><stagedRepositoryId>%s</stagedRepositoryId><description>ignored</description></data></promoteRequest>",
-		                               stage.getStageID());
-		byte[] payloadBytes = payload.getBytes("UTF-8");
-		int contentLen = payloadBytes.length;
+	public void dropStage(Stage stage) throws StageException {
+		performStageAction(StageAction.DROP, stage, null);
+	}
 
-		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-		addAuthHeader(conn);
-		conn.setRequestProperty("Content-Length", Integer.toString(contentLen));
-		conn.setRequestProperty("Content-Type", "application/xml; charset=UTF-8");
-
-		conn.setRequestMethod("POST");
-		conn.setDoOutput(true);
-
-		OutputStream out = conn.getOutputStream();
-		out.write(payloadBytes);
-		out.flush();
-
-		int status = conn.getResponseCode();
-		if (status == 201) {
-			// everything ok.
-			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
-		}
-		else {
-			System.err.println("Server returned HTTP Status " + status);
-			throw new IOException(String.format("Failed to drop nexus stage(%s) server responded with status:%s",
-			                                    stage.toString(), Integer.toString(status)));
-		}
-
+	/**
+	 * Promote the stage from Nexus staging into the default repository for the stage.
+	 * 
+	 * @param stage
+	 *        the Stage to promote.
+	 * @throws StageException
+	 *         if any issue occurred whilst promoting the stage.
+	 */
+	public void promoteStage(Stage stage) throws StageException {
+		throw new UnsupportedOperationException("not implemented");
+		// need to get the first repo target id for the stage...
+		// performStageAction(StageAction.PROMOTE, stage, null);
 	}
 
 	/**
@@ -210,116 +152,100 @@ public class StageClient {
 	 * @throws ParserConfigurationException
 	 * @throws SAXException
 	 */
-	public void checkAuthentication() throws IOException,
-			XPathExpressionException, ParserConfigurationException,
-			SAXException {
+	public void checkAuthentication() throws IOException, XPathExpressionException, ParserConfigurationException,
+	    SAXException {
 		// ${nexusURL}/service/local/status
 		URL url = new URL(nexusURL.toString() + "/service/local/status");
 		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 		addAuthHeader(conn);
 		int status = conn.getResponseCode();
 		if (status == 200) {
-			DocumentBuilder builder = DocumentBuilderFactory.newInstance()
-					.newDocumentBuilder();
+			DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
 			Document doc = builder.parse(conn.getInputStream());
 			/*
 			 * check for the following permissions:
 			 */
-			String[] requiredPerms = new String[] { "nexus:stagingprofiles",
-					"nexus:stagingfinish",
-					// "nexus:stagingpromote",
-					"nexus:stagingdrop" };
+			String[] requiredPerms = new String[] { "nexus:stagingprofiles", "nexus:stagingfinish",
+			// "nexus:stagingpromote",
+			    "nexus:stagingdrop" };
 
 			XPath xpath = XPathFactory.newInstance().newXPath();
 			for (String perm : requiredPerms) {
-				String expression = "//clientPermissions/permissions/permission[id=\""
-						+ perm + "\"]/value";
-				Node node = (Node) xpath.evaluate(expression, doc,
-						XPathConstants.NODE);
+				String expression = "//clientPermissions/permissions/permission[id=\"" + perm + "\"]/value";
+				Node node = (Node) xpath.evaluate(expression, doc, XPathConstants.NODE);
 				if (node == null) {
-					throw new IOException(
-							"Invalid reponse from server - is the URL a nexus server?");
+					throw new IOException("Invalid reponse from server - is the URL a nexus server?");
 				}
 				int val = Integer.parseInt(node.getTextContent());
 				if (val == 0) {
 					throw new IOException("user has insufficient privs");
 				}
 			}
-		} else {
+		}
+		else {
 			// drain the output to be nice.
 			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
 			if (status == 401) {
-				throw new IOException("Incorrect Crediantials for "
-						+ url.toString());
-			} else {
-				throw new IOException("Server returned error code " + status
-						+ " for " + url.toString());
+				throw new IOException("Incorrect Crediantials for " + url.toString());
+			}
+			else {
+				throw new IOException("Server returned error code " + status + " for " + url.toString());
 			}
 		}
 	}
 
-	public List<Stage> getOpenStageIDs() throws IOException,
-			XPathExpressionException, SAXException,
-			ParserConfigurationException {
-		List<Stage> openStages = new ArrayList<Stage>();
-		URL url = new URL(nexusURL.toString()
-				+ "/service/local/staging/profiles");
-
-		Document doc = getDocument(url);
-
-		String profileExpression = "//stagingProfile/id";
-		XPath xpathProfile = XPathFactory.newInstance().newXPath();
-		NodeList profileNodes = (NodeList) xpathProfile.evaluate(
-				profileExpression, doc, XPathConstants.NODESET);
-		for (int i = 0; i < profileNodes.getLength(); i++) {
-			Node profileNode = profileNodes.item(i);
-			String profileID = profileNode.getTextContent();
-
-			String statgeExpression = "../stagingRepositoryIds/string";
-			XPath xpathStage = XPathFactory.newInstance().newXPath();
-			NodeList stageNodes = (NodeList) xpathStage.evaluate(
-					statgeExpression, profileNode, XPathConstants.NODESET);
-			for (int j = 0; j < stageNodes.getLength(); j++) {
-				Node stageNode = stageNodes.item(j);
-				// XXX need to also get the stage profile
-				openStages
-						.add(new Stage(profileID, stageNode.getTextContent()));
-			}
-
+	public List<Stage> getOpenStageIDs() throws StageException {
+		try {
+  		List<Stage> openStages = new ArrayList<Stage>();
+  		URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles");
+  
+  		Document doc = getDocument(url);
+  
+  		String profileExpression = "//stagingProfile/id";
+  		XPath xpathProfile = XPathFactory.newInstance().newXPath();
+  		NodeList profileNodes = (NodeList) xpathProfile.evaluate(profileExpression, doc, XPathConstants.NODESET);
+  		for (int i = 0; i < profileNodes.getLength(); i++) {
+  			Node profileNode = profileNodes.item(i);
+  			String profileID = profileNode.getTextContent();
+  
+  			String statgeExpression = "../stagingRepositoryIds/string";
+  			XPath xpathStage = XPathFactory.newInstance().newXPath();
+  			NodeList stageNodes = (NodeList) xpathStage.evaluate(statgeExpression, profileNode, XPathConstants.NODESET);
+  			for (int j = 0; j < stageNodes.getLength(); j++) {
+  				Node stageNode = stageNodes.item(j);
+  				// XXX need to also get the stage profile
+  				openStages.add(new Stage(profileID, stageNode.getTextContent()));
+  			}
+  
+  		}
+  		return openStages;
 		}
-		return openStages;
+		catch (IOException ex) {
+			throw new StageException(ex);
+		}
+    catch (XPathException ex) {
+    	throw new StageException(ex);
+    }
 	}
 
-	@SuppressWarnings("restriction")
-	private void addAuthHeader(URLConnection conn) {
-		String auth = username + ":" + password;
-		// this is bad - should look at using some other BASE64 encoder
-		// and perhaps a different HTTPClient?
-		String encodedAuth = new sun.misc.BASE64Encoder().encode(auth
-				.getBytes());
-		conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
-	}
-
-	public boolean checkStageForGAV(Stage stage, String group, String artifact,
-			String version) throws MalformedURLException {
+	public boolean checkStageForGAV(Stage stage, String group, String artifact, String version)
+	    throws StageException {
 		// do we always know the version???
 		// to browse an open repo
 		// /service/local/repositories/${stageID}/content/...
 		// the stage repos are not listed via a call to
 		// /service/local/repositories/ but are in existence!
 		boolean found = false;
-		URL url;
-		if (version == null) {
-			url = new URL(nexusURL.toString() + "/service/local/repositories/"
-					+ stage.getStageID() + "/content/"
-					+ group.replace('.', '/') + '/' + artifact + "/?isLocal");
-		} else {
-			url = new URL(nexusURL.toString() + "/service/local/repositories/"
-					+ stage.getStageID() + "/content/"
-					+ group.replace('.', '/') + '/' + artifact + '/' + version
-					+ "/?isLocal");
-		}
 		try {
+			URL url;
+			if (version == null) {
+				url = new URL(nexusURL.toString() + "/service/local/repositories/" + stage.getStageID() + "/content/"
+				    + group.replace('.', '/') + '/' + artifact + "/?isLocal");
+			}
+			else {
+				url = new URL(nexusURL.toString() + "/service/local/repositories/" + stage.getStageID() + "/content/"
+				    + group.replace('.', '/') + '/' + artifact + '/' + version + "/?isLocal");
+			}
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 			addAuthHeader(conn);
 			conn.setRequestMethod("HEAD");
@@ -328,38 +254,138 @@ public class StageClient {
 				// we found our baby - may be a different version but we don't
 				// always have that to hand (if Maven did the auto numbering)
 				found = true;
-			} else if (response == HttpURLConnection.HTTP_NOT_FOUND) {
+			}
+			else if (response == HttpURLConnection.HTTP_NOT_FOUND) {
 				// not this repo
-			} else {
-				System.err.println("Server returned HTTP Status " + response);
+			}
+			else {
+				log.warn("Server returned HTTP status {} when we only expected a 200 or 404.", Integer.toString(response));
 			}
 			conn.disconnect();
-		} catch (IOException ex) {
-			// some debug message - but likely to happen for a 404.
+		}
+		catch (IOException ex) {
+			throw new StageException(ex);
 		}
 		return found;
 	}
 
-	private Document getDocument(URL url) throws IOException, SAXException,
-			ParserConfigurationException {
-		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-		addAuthHeader(conn);
-		int status = conn.getResponseCode();
-		if (status == 200) {
-			DocumentBuilder builder = DocumentBuilderFactory.newInstance()
-					.newDocumentBuilder();
-			Document doc = builder.parse(conn.getInputStream());
-			return doc;
-		} else {
-			// drain the output to be nice.
-			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
-			if (status == 401) {
-				throw new IOException("Incorrect Crediantials for "
-						+ url.toString());
-			} else {
-				throw new IOException("Server returned error code " + status
-						+ " for " + url.toString());
+	private Document getDocument(URL url) throws StageException {
+		try {
+			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+  		addAuthHeader(conn);
+  		int status = conn.getResponseCode();
+  		if (status == 200) {
+  			DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+  			Document doc = builder.parse(conn.getInputStream());
+  			return doc;
+  		}
+  		else {
+  			// drain the output to be nice.
+  			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+  			if (status == 401) {
+  				throw new IOException("Incorrect Crediantials for " + url.toString());
+  			}
+  			else {
+  				throw new IOException("Server returned error code " + status + " for " + url.toString());
+  			}
+  		}
+		}
+		catch (IOException ex) {
+			throw new StageException(ex);
+		}
+    catch (ParserConfigurationException ex) {
+    	throw new StageException(ex);
+    }
+    catch (SAXException ex) {
+    	throw new StageException(ex);
+    }
+		
+	}
+
+	/**
+	 * Construct the XML message for a promoteRequest.
+	 * 
+	 * @param stage
+	 *        The stage to target
+	 * @param description
+	 *        the description (used for promote - ignored otherwise)
+	 * @return The XML for the promoteRequest.
+	 */
+	private String createPromoteRequestPayload(Stage stage, String description) {
+		// TODO? this is missing the targetRepoID...
+		return String.format("<?xml version=\"1.0\" encoding=\"UTF-8\"?><promoteRequest><data><stagedRepositoryId>%s</stagedRepositoryId><description>ignored</description></data></promoteRequest>",
+		                     stage.getStageID());
+	}
+
+	
+	/**
+	 * Perform a staging action.
+	 * @param action the action to perform.
+	 * @param stage the stage on which to perform the action.
+	 * @param description description to pass to the server for the action (e.g. the description of the stage repo).
+	 * @throws StageException if an exception occurs whilst performing the action.
+	 */
+	private void performStageAction(StageAction action, Stage stage, String description) throws StageException {
+		try {
+			URL url = action.getURL(nexusURL, stage);
+			String payload = createPromoteRequestPayload(stage, description);
+
+			byte[] payloadBytes = payload.getBytes("UTF-8");
+			int contentLen = payloadBytes.length;
+
+			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+			addAuthHeader(conn);
+			conn.setRequestProperty("Content-Length", Integer.toString(contentLen));
+			conn.setRequestProperty("Content-Type", "application/xml; charset=UTF-8");
+			conn.setRequestProperty("Accept", "application/xml");
+
+			conn.setRequestMethod("POST");
+			conn.setDoOutput(true);
+
+			OutputStream out = conn.getOutputStream();
+			out.write(payloadBytes);
+			out.flush();
+
+			int status = conn.getResponseCode();
+			log.debug("Server returned HTTP Status {} for {} stage request to {}.", new Object[] { Integer.toString(status),
+			    action.name(), stage });
+
+			if (status == HttpURLConnection.HTTP_CREATED) {
+				// everything ok.
+				IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+				conn.disconnect();
+			}
+			else {
+				log.warn("Server returned HTTP Status {} for {} stage request to {}.", new Object[] { Integer.toString(status),
+				    action.name(), stage });
+				IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+				conn.disconnect();
+				throw new IOException(String.format("server responded with status:%s", Integer.toString(status)));
 			}
 		}
+		catch (IOException ex) {
+			String message = String.format("Failed to perform %s action to nexus stage(%s)", action.name(), stage.toString());
+			throw new StageException(message, ex);
+		}
 	}
+
+	/**
+	 * Add the BASIC Authentication header to the HTTP connection.
+	 * @param conn the HTTP URL Connection
+	 */
+	private void addAuthHeader(HttpURLConnection conn) {
+		try {
+			String auth = username + ":" + password;
+			// there is a lot of debate about password and non ISO-8859-1 characters...
+			// see https://bugzilla.mozilla.org/show_bug.cgi?id=41489
+			String encodedAuth = new Base64().encodeToString(auth.getBytes("ISO-8859-1"));
+			conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
+		}
+		catch (UnsupportedEncodingException ex) {
+			String msg = "JVM does not conform to java specification.  Mandatory CharSet ISO-8859-1 is not available.";
+			log.error(msg);
+			throw new RuntimeException(msg, ex);
+		}
+	}
+
 }

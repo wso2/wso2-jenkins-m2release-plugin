@@ -9,6 +9,12 @@
 	<description>A plug-in that enables you to perform releases using the maven-release-plugin from Hudson.</description>
 	<url>http://wiki.hudson-ci.org/display/HUDSON/M2+Release+Plugin</url>
 
+	<parent>
+		<groupId>org.jvnet.hudson.plugins</groupId>
+		<artifactId>plugin</artifactId>
+		<version>1.362</version>
+	</parent>
+
 	<developers>
 		<developer>
 			<id>teilo</id>
@@ -25,12 +31,6 @@
 		<developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/plugin</developerConnection>
 		<url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/m2release/plugin</url>
 	</scm>
-
-	<parent>
-		<groupId>org.jvnet.hudson.plugins</groupId>
-		<artifactId>plugin</artifactId>
-		<version>1.356</version>
-	</parent>
 
 	<licenses>
 		<license>
@@ -55,9 +55,18 @@
 	<build>
 		<pluginManagement>
 			<plugins>
+				<!--  
+					The following plugins are used without versions in the Hudson HPI lifecycle.
+					This causes unreproduceable builds and Maven3 spits out big warnings.
+				 -->
 				<plugin>
 					<artifactId>maven-enforcer-plugin</artifactId>
 					<version>1.0-beta-1</version>
+				</plugin>
+				<plugin>
+					<groupId>org.kohsuke</groupId>
+					<artifactId>access-modifier-checker</artifactId>
+					<version>1.0</version>
 				</plugin>
 			</plugins>
 		</pluginManagement>
