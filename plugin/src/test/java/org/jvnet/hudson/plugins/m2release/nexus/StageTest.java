@@ -1,18 +1,12 @@
 package org.jvnet.hudson.plugins.m2release.nexus;
 
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.XPathExpressionException;
-
 import junit.framework.Assert;
 
 import org.junit.Test;
-import org.sonatype.nexus.restlight.stage.StageRepository;
-import org.xml.sax.SAXException;
 
 public class StageTest {
 
@@ -82,6 +76,14 @@ public class StageTest {
 		Stage stage = client.getOpenStageID("com.test.testone", "test", "1.0.0");
 		Assert.assertNotNull("Stage is null", stage);
 		client.closeStage(stage, "Test stage closing from StageClient");		
+	}
+
+	@Test
+	public void testDropStage() throws Exception {
+		StageClient client = new StageClient(NEXUS_URL, "admin", "admin123");
+		Stage stage = client.getOpenStageID("com.test.testone", "test", "1.0.0");
+		Assert.assertNotNull("Stage is null", stage);
+		client.dropStage(stage);
 	}
 
 }

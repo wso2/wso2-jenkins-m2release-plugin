@@ -111,33 +111,29 @@ public class StageClient {
 	}
 
 	/**
-	 * Close the stage id with the specified ID.
+	 * Close the specified stage.
 	 * 
-	 * @param stageID
+	 * @param stage the stage to close.
 	 * @throws IOException
 	 */
 	public void closeStage(Stage stage, String description) throws IOException {
 		// url to close is
 		// ${nexusURL}/service/local/staging/profiles/${stageID}/finish
 		// what is the return - just a 200 OK?
-		URL url = new URL(nexusURL.toString()
-				+ "/service/local/staging/profiles/" + stage.getProfileID()
-				+ "/finish");
+		URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles/" + stage.getProfileID()
+		                  + "/finish");
 
 		// JSON looks like
 		// {"data":{"stagedRepositoryId":"abc-004","description":"close description"}}
-		String payload = String
-				.format(
-						"<?xml version=\"1.0\" encoding=\"UTF-8\"?><promoteRequest><data><stagedRepositoryId>%s</stagedRepositoryId><description><![CDATA[%s]]></description></data></promoteRequest>",
-						stage.getStageID(), description);
+		String payload = String.format("<?xml version=\"1.0\" encoding=\"UTF-8\"?><promoteRequest><data><stagedRepositoryId>%s</stagedRepositoryId><description><![CDATA[%s]]></description></data></promoteRequest>",
+		                               stage.getStageID(), description);
 		byte[] payloadBytes = payload.getBytes("UTF-8");
 		int contentLen = payloadBytes.length;
 
 		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 		addAuthHeader(conn);
 		conn.setRequestProperty("Content-Length", Integer.toString(contentLen));
-		conn.setRequestProperty("Content-Type",
-				"application/xml; charset=UTF-8");
+		conn.setRequestProperty("Content-Type", "application/xml; charset=UTF-8");
 
 		conn.setRequestMethod("POST");
 		conn.setDoOutput(true);
@@ -150,13 +146,11 @@ public class StageClient {
 		if (status == 201) {
 			// everything ok.
 			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
-		} else {
+		}
+		else {
 			System.err.println("Server returned HTTP Status " + status);
-			throw new IOException(
-					String
-							.format(
-									"Failed to close nexus stage(%s) server responded with status:%s",
-									stage.toString(), Integer.toString(status)));
+			throw new IOException(String.format("Failed to close nexus stage(%s) server responded with status:%s",
+			                                    stage.toString(), Integer.toString(status)));
 		}
 		// needs content length
 		// and also content-type (application/json)?
@@ -164,16 +158,47 @@ public class StageClient {
 	}
 
 	/**
-	 * Drop the stage with the specified ID.
+	 * Drop the stage from nexus staging.
 	 * 
-	 * @param stageID
+	 * @param stage the Stage to drop.
+	 * @throws IOException 
 	 */
-	public void dropStage(Stage stage) {
+	public void dropStage(Stage stage) throws IOException {
 		// ${nexusURL}/service/local/staging/profiles/${stageID}/drop
 		// POST /nexus/service/local/staging/profiles/{profileID}/drop?undefined
 		// payload is
 		// {"data":{"stagedRepositoryId":"abc-003","description":"drop descr"}}
 		// {"data":{"stagedRepositoryId":"abc-003","description":"drop descr"}}
+		URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles/" + stage.getProfileID()
+		                  + "/finish");
+		String payload = String.format("<?xml version=\"1.0\" encoding=\"UTF-8\"?><promoteRequest><data><stagedRepositoryId>%s</stagedRepositoryId><description>ignored</description></data></promoteRequest>",
+		                               stage.getStageID());
+		byte[] payloadBytes = payload.getBytes("UTF-8");
+		int contentLen = payloadBytes.length;
+
+		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+		addAuthHeader(conn);
+		conn.setRequestProperty("Content-Length", Integer.toString(contentLen));
+		conn.setRequestProperty("Content-Type", "application/xml; charset=UTF-8");
+
+		conn.setRequestMethod("POST");
+		conn.setDoOutput(true);
+
+		OutputStream out = conn.getOutputStream();
+		out.write(payloadBytes);
+		out.flush();
+
+		int status = conn.getResponseCode();
+		if (status == 201) {
+			// everything ok.
+			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+		}
+		else {
+			System.err.println("Server returned HTTP Status " + status);
+			throw new IOException(String.format("Failed to drop nexus stage(%s) server responded with status:%s",
+			                                    stage.toString(), Integer.toString(status)));
+		}
+
 	}
 
 	/**
