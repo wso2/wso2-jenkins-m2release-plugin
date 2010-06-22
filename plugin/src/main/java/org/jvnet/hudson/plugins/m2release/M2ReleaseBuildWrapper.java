@@ -56,12 +56,12 @@ import javax.servlet.ServletException;
 
 import net.sf.json.JSONObject;
 
+import org.jvnet.hudson.plugins.m2release.nexus.Stage;
+import org.jvnet.hudson.plugins.m2release.nexus.StageClient;
+import org.jvnet.hudson.plugins.m2release.nexus.StageException;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
-import org.sonatype.nexus.restlight.common.RESTLightClientException;
-import org.sonatype.nexus.restlight.stage.StageClient;
-import org.sonatype.nexus.restlight.stage.StageRepository;
 
 /**
  * Wraps a {@link MavenBuild} to be able to run the <a
@@ -184,23 +184,16 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				}
 
 				if (localcloseStage) {
-					// nexus client tries to load the vocab using the contextClassLoader.
-					ClassLoader originalLoader = Thread.currentThread().getContextClassLoader();
-					ClassLoader newLoader = StageClient.class.getClassLoader();
-					Thread.currentThread().setContextClassLoader(newLoader);
+					StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor().getNexusUser(), getDescriptor().getNexusPassword()); 
 					try {
-						StageClient client = new StageClient(getDescriptor().getNexusURL(),
-						                                     getDescriptor().getNexusUser(),
-						                                     getDescriptor().getNexusPassword());
 						MavenModule rootModule = mmSet.getRootModule();
-						// TODO add support for a user supplied comment.
-						StageRepository repo = client.getOpenStageRepositoryForUser(rootModule.getModuleName().groupId,
-						                                                            rootModule.getModuleName().artifactId,
-						                                                            repoDescription);
-						if (repo != null) {
-							lstnr.getLogger().append("[M2Release] Closing repository " + repo.getRepositoryId() + " at "
-							                             + repo.getUrl());
-							client.finishRepository(repo, "Stage for: " + rootModule.getDisplayName());
+						// TODO grab the version that we have just released...
+						Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId, rootModule.getModuleName().artifactId, null);
+						if (stage != null) {
+							lstnr.getLogger().println("[M2Release] Closing repository " + stage);
+							// TODO add support for user supplied comment.
+							// TODO add version so we can find it amongs others.
+							client.closeStage(stage, "Stage for: " + rootModule.getDisplayName());
 							lstnr.getLogger().append("[M2Release] Closed staging repository.");
 						}
 						else {
@@ -208,12 +201,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 							lstnr.fatalError("[M2Release] Could not find nexus stage repository for project.\n");
 						}
 					}
-					catch (RESTLightClientException ex) {
+					catch (StageException ex) {
 						lstnr.fatalError("[M2Release] Could not close repository , %s\n", ex.toString());
 						retVal = false;
-					}
-					finally {
-						Thread.currentThread().setContextClassLoader(originalLoader);
 					}
 				}
 				return retVal;
@@ -435,8 +425,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		 * Checks if the Nexus URL exists and we can authenticate against it.
 		 */
 		public FormValidation doUrlCheck(@QueryParameter String urlValue, 
-		                                  @QueryParameter String usernameValue,
-		                                  @QueryParameter String passwordValue) throws IOException,
+		                                 final @QueryParameter String usernameValue,
+		                                 final @QueryParameter String passwordValue) throws IOException,
 		                                                                      ServletException {
 			// this method can be used to check if a file exists anywhere in the file system,
 			// so it should be protected.
@@ -455,59 +445,21 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			else {
 				testURL = urlValue;
 			}
-
-			FormValidation httpCheck = new URLCheck() {
-				@Override
-				protected FormValidation check() throws IOException, ServletException{
-					String v = testURL;
-					URL url= null;
-					try {
-						url = new URL(v);
-						if (!(url.getProtocol().equals("http") || url.getProtocol().equals("https"))) {
-							return FormValidation.error("protocol must be http or https");
-						}
-						HttpURLConnection con = (HttpURLConnection) url.openConnection();
-						int status = con.getResponseCode();
-						con.disconnect();
-						if (status != 200) {
-							return FormValidation.error("Error communicating with server (web server returned " + status + ")");
-						}
-						if (findText(open(url), "Sonatype Nexus&trade; Professional Edition")) { //$NON-NLS-1$
-							return FormValidation.ok();
-						}
-						else if (findText(open(url), "Sonatype Nexus")) { //$NON-NLS-1$
-							return FormValidation.error("This is a valid Nexus URL but it looks like Nexus OSS Edition");
-						}
-						else {
-							return FormValidation.error("This is a valid URL but it doesn't look like Nexus Professional");
-						}
-					}
-					catch (MalformedURLException ex) {
-						return FormValidation.error(v + " is not a valid URL");
-					}
-					catch (UnknownHostException ex) {
-						return FormValidation.error("Could not resolve host \"" + url.getHost() + '\"');
-					}
-					catch (IOException e) {
-						return handleIOException(v, e);
-					}
-				}
-			}.check();
-			switch (httpCheck.kind) {
-				case ERROR:
-				case WARNING:
-					return httpCheck;
-				case OK:
-					// keep checking
-					break;
-			}
+			URL url = null;
 			try {
-				StageClient client = new StageClient(testURL, usernameValue, passwordValue);
-				client.getOpenStageRepositoriesForUser();
+				url = new URL(testURL);
+				if (!(url.getProtocol().equals("http") || url.getProtocol().equals("https"))) {
+					return FormValidation.error("protocol must be http or https");
+				}
+				StageClient client = new StageClient(new URL(testURL), usernameValue, passwordValue);
+				client.checkAuthentication();
 			}
-			catch (RESTLightClientException e) {
-				FormValidation stageError = FormValidation.error(e.getMessage());
-				stageError.initCause(e);
+			catch (MalformedURLException ex) {
+				return FormValidation.error(url + " is not a valid URL");
+			}
+			catch (StageException ex) {
+				FormValidation stageError = FormValidation.error(ex.getMessage());
+				stageError.initCause(ex);
 				return stageError; 
 			}
 			return FormValidation.ok();

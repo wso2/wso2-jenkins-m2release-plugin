@@ -46,9 +46,9 @@
 			<artifactId>maven-plugin</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.jvnet.hudson.plugins.m2release</groupId>
-			<artifactId>nexus</artifactId>
-			<version>0.0.3</version>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-jcl</artifactId>
+			<version>1.6.0</version>
 		</dependency>
 	</dependencies>
 

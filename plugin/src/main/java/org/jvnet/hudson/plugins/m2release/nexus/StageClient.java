@@ -39,7 +39,6 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathException;
-import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
 import org.apache.commons.codec.binary.Base64;
@@ -147,85 +146,96 @@ public class StageClient {
 	 * Check if we have the required permissions for nexus staging.
 	 * 
 	 * @return
-	 * @throws IOException
-	 * @throws XPathExpressionException
-	 * @throws ParserConfigurationException
-	 * @throws SAXException
+	 * @throws StageException if an exception occurred whilst checking the authorisation.
 	 */
-	public void checkAuthentication() throws IOException, XPathExpressionException, ParserConfigurationException,
-	    SAXException {
-		// ${nexusURL}/service/local/status
-		URL url = new URL(nexusURL.toString() + "/service/local/status");
-		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-		addAuthHeader(conn);
-		int status = conn.getResponseCode();
-		if (status == 200) {
-			DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-			Document doc = builder.parse(conn.getInputStream());
-			/*
-			 * check for the following permissions:
-			 */
-			String[] requiredPerms = new String[] { "nexus:stagingprofiles", "nexus:stagingfinish",
-			// "nexus:stagingpromote",
-			    "nexus:stagingdrop" };
+	public void checkAuthentication() throws StageException {
+		try {
+			URL url = new URL(nexusURL.toString() + "/service/local/status");
+			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+			addAuthHeader(conn);
+			int status = conn.getResponseCode();
+			if (status == 200) {
+				DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+				Document doc = builder.parse(conn.getInputStream());
+				/*
+				 * check for the following permissions:
+				 */
+				String[] requiredPerms = new String[] {"nexus:stagingprofiles", "nexus:stagingfinish",
+				// "nexus:stagingpromote",
+				    "nexus:stagingdrop"};
 
-			XPath xpath = XPathFactory.newInstance().newXPath();
-			for (String perm : requiredPerms) {
-				String expression = "//clientPermissions/permissions/permission[id=\"" + perm + "\"]/value";
-				Node node = (Node) xpath.evaluate(expression, doc, XPathConstants.NODE);
-				if (node == null) {
-					throw new IOException("Invalid reponse from server - is the URL a nexus server?");
+				XPath xpath = XPathFactory.newInstance().newXPath();
+				for (String perm : requiredPerms) {
+					String expression = "//clientPermissions/permissions/permission[id=\"" + perm + "\"]/value";
+					Node node = (Node) xpath.evaluate(expression, doc, XPathConstants.NODE);
+					if (node == null) {
+						throw new StageException("Invalid reponse from server - is the URL a nexus server?");
+					}
+					int val = Integer.parseInt(node.getTextContent());
+					if (val == 0) {
+						throw new StageException("User has insufficient privaledges to perform staging actions (" + perm
+						                         + ")");
+					}
 				}
-				int val = Integer.parseInt(node.getTextContent());
-				if (val == 0) {
-					throw new IOException("user has insufficient privs");
+			}
+			else {
+				// drain the output to be nice.
+				IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+				if (status == 401) {
+					throw new IOException("Incorrect Crediantials for " + url.toString());
+				}
+				else {
+					throw new IOException("Server returned error code " + status + " for " + url.toString());
 				}
 			}
 		}
-		else {
-			// drain the output to be nice.
-			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
-			if (status == 401) {
-				throw new IOException("Incorrect Crediantials for " + url.toString());
-			}
-			else {
-				throw new IOException("Server returned error code " + status + " for " + url.toString());
-			}
+		catch (IOException ex) {
+			throw createStageExceptionForIOException(nexusURL, ex);
+		}
+		catch (XPathException ex) {
+			throw new StageException(ex);
+		}
+		catch (ParserConfigurationException ex) {
+			throw new StageException(ex);
+		}
+		catch (SAXException ex) {
+			throw new StageException(ex);
 		}
 	}
 
+
 	public List<Stage> getOpenStageIDs() throws StageException {
 		try {
-  		List<Stage> openStages = new ArrayList<Stage>();
-  		URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles");
-  
-  		Document doc = getDocument(url);
-  
-  		String profileExpression = "//stagingProfile/id";
-  		XPath xpathProfile = XPathFactory.newInstance().newXPath();
-  		NodeList profileNodes = (NodeList) xpathProfile.evaluate(profileExpression, doc, XPathConstants.NODESET);
-  		for (int i = 0; i < profileNodes.getLength(); i++) {
-  			Node profileNode = profileNodes.item(i);
-  			String profileID = profileNode.getTextContent();
-  
-  			String statgeExpression = "../stagingRepositoryIds/string";
-  			XPath xpathStage = XPathFactory.newInstance().newXPath();
-  			NodeList stageNodes = (NodeList) xpathStage.evaluate(statgeExpression, profileNode, XPathConstants.NODESET);
-  			for (int j = 0; j < stageNodes.getLength(); j++) {
-  				Node stageNode = stageNodes.item(j);
-  				// XXX need to also get the stage profile
-  				openStages.add(new Stage(profileID, stageNode.getTextContent()));
-  			}
-  
-  		}
-  		return openStages;
+			List<Stage> openStages = new ArrayList<Stage>();
+			URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles");
+
+			Document doc = getDocument(url);
+
+			String profileExpression = "//stagingProfile/id";
+			XPath xpathProfile = XPathFactory.newInstance().newXPath();
+			NodeList profileNodes = (NodeList) xpathProfile.evaluate(profileExpression, doc, XPathConstants.NODESET);
+			for (int i = 0; i < profileNodes.getLength(); i++) {
+				Node profileNode = profileNodes.item(i);
+				String profileID = profileNode.getTextContent();
+
+				String statgeExpression = "../stagingRepositoryIds/string";
+				XPath xpathStage = XPathFactory.newInstance().newXPath();
+				NodeList stageNodes = (NodeList) xpathStage.evaluate(statgeExpression, profileNode,
+				                                                     XPathConstants.NODESET);
+				for (int j = 0; j < stageNodes.getLength(); j++) {
+					Node stageNode = stageNodes.item(j);
+					// XXX need to also get the stage profile
+					openStages.add(new Stage(profileID, stageNode.getTextContent()));
+				}
+			}
+			return openStages;
 		}
 		catch (IOException ex) {
+			throw createStageExceptionForIOException(nexusURL, ex);
+		}
+		catch (XPathException ex) {
 			throw new StageException(ex);
 		}
-    catch (XPathException ex) {
-    	throw new StageException(ex);
-    }
 	}
 
 	public boolean checkStageForGAV(Stage stage, String group, String artifact, String version)
@@ -264,42 +274,44 @@ public class StageClient {
 			conn.disconnect();
 		}
 		catch (IOException ex) {
-			throw new StageException(ex);
+			throw createStageExceptionForIOException(nexusURL, ex);
 		}
 		return found;
 	}
 
+
 	private Document getDocument(URL url) throws StageException {
 		try {
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-  		addAuthHeader(conn);
-  		int status = conn.getResponseCode();
-  		if (status == 200) {
-  			DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-  			Document doc = builder.parse(conn.getInputStream());
-  			return doc;
-  		}
-  		else {
-  			// drain the output to be nice.
-  			IOUtils.skip(conn.getInputStream(), conn.getContentLength());
-  			if (status == 401) {
-  				throw new IOException("Incorrect Crediantials for " + url.toString());
-  			}
-  			else {
-  				throw new IOException("Server returned error code " + status + " for " + url.toString());
-  			}
-  		}
+			addAuthHeader(conn);
+			int status = conn.getResponseCode();
+			if (status == 200) {
+				DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+				Document doc = builder.parse(conn.getInputStream());
+				conn.disconnect();
+				return doc;
+			}
+			else {
+				// drain the output to be nice.
+				IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+				if (status == 401) {
+					throw new IOException("Incorrect Crediantials for " + url.toString());
+				}
+				else {
+					throw new IOException("Server returned error code " + status + " for " + url.toString());
+				}
+			}
 		}
 		catch (IOException ex) {
+			throw createStageExceptionForIOException(nexusURL, ex);
+		}
+		catch (ParserConfigurationException ex) {
 			throw new StageException(ex);
 		}
-    catch (ParserConfigurationException ex) {
-    	throw new StageException(ex);
-    }
-    catch (SAXException ex) {
-    	throw new StageException(ex);
-    }
-		
+		catch (SAXException ex) {
+			throw new StageException(ex);
+		}
+
 	}
 
 	/**
@@ -312,7 +324,7 @@ public class StageClient {
 	 * @return The XML for the promoteRequest.
 	 */
 	private String createPromoteRequestPayload(Stage stage, String description) {
-		// TODO? this is missing the targetRepoID...
+		// TODO? this is missing the targetRepoID which is needed for promote...
 		return String.format("<?xml version=\"1.0\" encoding=\"UTF-8\"?><promoteRequest><data><stagedRepositoryId>%s</stagedRepositoryId><description>ignored</description></data></promoteRequest>",
 		                     stage.getStageID());
 	}
@@ -356,8 +368,8 @@ public class StageClient {
 				conn.disconnect();
 			}
 			else {
-				log.warn("Server returned HTTP Status {} for {} stage request to {}.", new Object[] { Integer.toString(status),
-				    action.name(), stage });
+				log.warn("Server returned HTTP Status {} for {} stage request to {}.", 
+				         new Object[] { Integer.toString(status), action.name(), stage });
 				IOUtils.skip(conn.getInputStream(), conn.getContentLength());
 				conn.disconnect();
 				throw new IOException(String.format("server responded with status:%s", Integer.toString(status)));
@@ -374,6 +386,7 @@ public class StageClient {
 	 * @param conn the HTTP URL Connection
 	 */
 	private void addAuthHeader(HttpURLConnection conn) {
+		// java.net.Authenticator is brain damaged as it is global and no way to delegate for just one server...
 		try {
 			String auth = username + ":" + password;
 			// there is a lot of debate about password and non ISO-8859-1 characters...
@@ -388,4 +401,17 @@ public class StageClient {
 		}
 	}
 
+
+	private StageException createStageExceptionForIOException(URL url, IOException ex) {
+		if (ex instanceof StageException) {
+			return (StageException)ex;
+		}
+		if (ex.getMessage().equals(url.toString())) {
+			// Sun JRE (and probably others too) often return just the URL in the error.
+			return new StageException("Unable to connect to " + url, ex);
+		}
+		else {
+			return new StageException(ex);
+		}
+	}
 }
