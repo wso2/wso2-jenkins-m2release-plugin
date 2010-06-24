@@ -169,7 +169,7 @@ public class StageClient {
 					String expression = "//clientPermissions/permissions/permission[id=\"" + perm + "\"]/value";
 					Node node = (Node) xpath.evaluate(expression, doc, XPathConstants.NODE);
 					if (node == null) {
-						throw new StageException("Invalid reponse from server - is the URL a nexus server?");
+						throw new StageException("Invalid reponse from server - is the URL a Nexus Professional server?");
 					}
 					int val = Integer.parseInt(node.getTextContent());
 					if (val == 0) {
@@ -179,13 +179,15 @@ public class StageClient {
 				}
 			}
 			else {
-				// drain the output to be nice.
-				IOUtils.skip(conn.getInputStream(), conn.getContentLength());
-				if (status == 401) {
-					throw new IOException("Incorrect Crediantials for " + url.toString());
+				drainOutput(conn);
+				if (status == HttpURLConnection.HTTP_UNAUTHORIZED) {
+					throw new IOException("Incorrect username / password supplied.");
+				}
+				else if (status == HttpURLConnection.HTTP_NOT_FOUND) {
+					throw new IOException("Service not found - is this a Nexus server?");
 				}
 				else {
-					throw new IOException("Server returned error code " + status + " for " + url.toString());
+					throw new IOException("Server returned error code " + status + ".");
 				}
 			}
 		}
@@ -292,8 +294,7 @@ public class StageClient {
 				return doc;
 			}
 			else {
-				// drain the output to be nice.
-				IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+				drainOutput(conn);
 				if (status == 401) {
 					throw new IOException("Incorrect Crediantials for " + url.toString());
 				}
@@ -363,14 +364,13 @@ public class StageClient {
 			    action.name(), stage });
 
 			if (status == HttpURLConnection.HTTP_CREATED) {
-				// everything ok.
-				IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+				drainOutput(conn);
 				conn.disconnect();
 			}
 			else {
 				log.warn("Server returned HTTP Status {} for {} stage request to {}.", 
 				         new Object[] { Integer.toString(status), action.name(), stage });
-				IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+				drainOutput(conn);
 				conn.disconnect();
 				throw new IOException(String.format("server responded with status:%s", Integer.toString(status)));
 			}
@@ -391,8 +391,10 @@ public class StageClient {
 			String auth = username + ":" + password;
 			// there is a lot of debate about password and non ISO-8859-1 characters...
 			// see https://bugzilla.mozilla.org/show_bug.cgi?id=41489
-			String encodedAuth = new Base64().encodeToString(auth.getBytes("ISO-8859-1"));
+			// Base64 adds a trailing newline - just strip it as whitespace is illegal in Bsae64
+			String encodedAuth = new Base64().encodeToString(auth.getBytes("ISO-8859-1")).trim();
 			conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
+			log.debug("Encoded Authentication is: "+encodedAuth);
 		}
 		catch (UnsupportedEncodingException ex) {
 			String msg = "JVM does not conform to java specification.  Mandatory CharSet ISO-8859-1 is not available.";
@@ -411,7 +413,21 @@ public class StageClient {
 			return new StageException("Unable to connect to " + url, ex);
 		}
 		else {
-			return new StageException(ex);
+			return new StageException(ex.getMessage(), ex);
+		}
+	}
+	
+	private void drainOutput(HttpURLConnection conn) throws IOException {
+		// for things like unauthorised (401) we won't have any content and getting the inputStream will 
+		// cause an IOException as we are in error - but there is no really way to tell this so check the 
+		// length instead.
+		if (conn.getContentLength() > 0) {
+			if (conn.getErrorStream() != null) {
+				IOUtils.skip(conn.getErrorStream(), conn.getContentLength());
+			}
+			else {
+				IOUtils.skip(conn.getInputStream(), conn.getContentLength());
+			}
 		}
 	}
 }

@@ -154,12 +154,12 @@ public class M2ReleaseAction implements Action {
 	}
 	
 	public boolean isNexusSupportEnabled() {
-		return project.getBuildWrappers().get(M2ReleaseBuildWrapper.class).getDescriptor().isNexusSupport();
+		return project.getBuildWrappersList().get(M2ReleaseBuildWrapper.class).getDescriptor().isNexusSupport();
 	}
 	
 	public void doSubmit(StaplerRequest req, StaplerResponse resp) throws IOException, ServletException {
 		M2ReleaseBuildWrapper.checkReleasePermission(project);
-		M2ReleaseBuildWrapper m2Wrapper = project.getBuildWrappers().get(M2ReleaseBuildWrapper.class);
+		M2ReleaseBuildWrapper m2Wrapper = project.getBuildWrappersList().get(M2ReleaseBuildWrapper.class);
 
 		// JSON collapses everything in the dynamic specifyVersions section so we need to fall back to
 		// good old http...

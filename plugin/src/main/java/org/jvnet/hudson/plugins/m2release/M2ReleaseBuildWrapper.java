@@ -43,13 +43,10 @@ import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
-import hudson.util.FormValidation.URLCheck;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.UnknownHostException;
 import java.util.Map;
 
 import javax.servlet.ServletException;
@@ -295,6 +292,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		if (retVal == null) {
 			// we are auto versioning...
 			retVal = moduleName.getVersion().replace("-SNAPSHOT", ""); //$NON-NLS-1$ //$NON-NLS-2$
+			// TODO: or we are using a global version
 		}
 		return retVal;
 	}

@@ -51,7 +51,7 @@ public class StageException extends IOException {
 	 * Constructs a {@code StageException} with the specified detail message.
 	 * 
 	 * @param message
-	 *        the message that should be shown to the end user to explain ehat went wrong.
+	 *        the message that should be shown to the end user to explain what went wrong.
 	 */
 	public StageException(String message) {
 		super(message);
@@ -68,4 +68,8 @@ public class StageException extends IOException {
 		super(cause);
 	}
 
+	@Override
+	public String toString() {
+		return "boo " + super.toString();
+	}
 }
