@@ -188,9 +188,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId, rootModule.getModuleName().artifactId, null);
 						if (stage != null) {
 							lstnr.getLogger().println("[M2Release] Closing repository " + stage);
-							// TODO add support for user supplied comment.
-							// TODO add version so we can find it amongs others.
-							client.closeStage(stage, "Stage for: " + rootModule.getDisplayName());
+							client.closeStage(stage, repoDescription);
 							lstnr.getLogger().append("[M2Release] Closed staging repository.");
 						}
 						else {
@@ -285,20 +283,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	}
 
 
-	private String getReleaseVersion(MavenModule moduleName) {
-		String retVal = null;
-		String key = "-Dproject.rel." + moduleName.getModuleName().toString();
-		retVal = versions.get(key);
-		if (retVal == null) {
-			// we are auto versioning...
-			retVal = moduleName.getVersion().replace("-SNAPSHOT", ""); //$NON-NLS-1$ //$NON-NLS-2$
-			// TODO: or we are using a global version
-		}
-		return retVal;
-	}
-
-
-	private MavenModuleSet getModuleSet(AbstractBuild build) {
+	private MavenModuleSet getModuleSet(AbstractBuild<?,?> build) {
 		if (build instanceof MavenBuild) {
 			MavenBuild m2Build = (MavenBuild) build;
 			MavenModule mm = m2Build.getProject();
