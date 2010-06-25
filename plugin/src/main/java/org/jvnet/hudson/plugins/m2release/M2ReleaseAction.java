@@ -187,7 +187,8 @@ public class M2ReleaseAction implements Action {
 					versions.put(keyStr, getString(keyStr, httpParams));
 				}
 			}
-		} else if (DescriptorImpl.VERSIONING_SPECIFY_VERSION.equals(versioningMode)) {
+		} 
+		else if (DescriptorImpl.VERSIONING_SPECIFY_VERSION.equals(versioningMode)) {
 			versions = new HashMap<String, String>();
 
 			final String releaseVersion = getString("releaseVersion", httpParams); //$NON-NLS-1$

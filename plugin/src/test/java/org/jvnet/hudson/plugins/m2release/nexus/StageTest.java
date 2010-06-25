@@ -6,8 +6,9 @@ import java.util.List;
 
 import junit.framework.Assert;
 
+import org.junit.Ignore;
 import org.junit.Test;
-
+@Ignore("requires infrastructure.")
 public class StageTest {
 
 	// TODO start an embedded server instead to server these files so we also test http auth access?

@@ -83,17 +83,19 @@ public class StageClient {
 	 * @param artifactId
 	 *        artifactID to search for.
 	 * @param version
-	 *        version of the group/artifact to search for <em>[currently ignored]</em>.
+	 *        version of the group/artifact to search for - may be <code>null</code>.
 	 * @return the stageID or null if no machine stage was found.
-	 * @throws StageException if any issue occurred whilst locting the open stage.
+	 * @throws StageException if any issue occurred whilst locating the open stage.
 	 */
 	public Stage getOpenStageID(String group, String artifact, String version) throws StageException {
+		log.debug("Looking for stage repo for {}:{}:{}", new Object[] {group, artifact, version});
 		List<Stage> stages = getOpenStageIDs();
 		Stage stage = null;
 		for (Stage testStage : stages) {
 			if (checkStageForGAV(testStage, group, artifact, version)) {
 				if (stage == null) {
 					stage = testStage;
+					log.debug("Found stage repo {} for {}:{}:{}", new Object[] {stage, group, artifact, version});
 				}
 				else {
 					// multiple stages match!!!
@@ -207,6 +209,7 @@ public class StageClient {
 
 
 	public List<Stage> getOpenStageIDs() throws StageException {
+		log.debug("retreiving list of stages");
 		try {
 			List<Stage> openStages = new ArrayList<Stage>();
 			URL url = new URL(nexusURL.toString() + "/service/local/staging/profiles");
@@ -326,7 +329,8 @@ public class StageClient {
 	 */
 	private String createPromoteRequestPayload(Stage stage, String description) {
 		// TODO? this is missing the targetRepoID which is needed for promote...
-		return String.format("<?xml version=\"1.0\" encoding=\"UTF-8\"?><promoteRequest><data><stagedRepositoryId>%s</stagedRepositoryId><description>ignored</description></data></promoteRequest>",
+		// XXX lets hope that the description never contains "]]>"
+		return String.format("<?xml version=\"1.0\" encoding=\"UTF-8\"?><promoteRequest><data><stagedRepositoryId>%s</stagedRepositoryId><description><![CDATA[%s]]></description></data></promoteRequest>",
 		                     stage.getStageID());
 	}
 
@@ -339,6 +343,7 @@ public class StageClient {
 	 * @throws StageException if an exception occurs whilst performing the action.
 	 */
 	private void performStageAction(StageAction action, Stage stage, String description) throws StageException {
+		log.debug("Performing action {} on stage {}", new Object[] {action, stage});
 		try {
 			URL url = action.getURL(nexusURL, stage);
 			String payload = createPromoteRequestPayload(stage, description);

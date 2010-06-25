@@ -1,7 +1,9 @@
 <div>
-	<p>
-		The username and password must match the username/password that Maven uses
-		during the deploy phase for release artifacts.
-		This user must have the <code>Staging: Promotion</code> role.
-	</p>
+	The username and password for access to the Nexus Pro server.
+	This user must have the following privileges:
+	<ul>
+		<li>nexus:stagingprofiles</li>
+		<li>nexus:stagingfinish</li>
+		<li>nexus:stagingdrop</li>
+	</ul>
 </div>

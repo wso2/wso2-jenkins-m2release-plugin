@@ -59,6 +59,8 @@ import org.jvnet.hudson.plugins.m2release.nexus.StageException;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Wraps a {@link MavenBuild} to be able to run the <a
@@ -70,7 +72,9 @@ import org.kohsuke.stapler.StaplerRequest;
  * @since 0.1
  */
 public class M2ReleaseBuildWrapper extends BuildWrapper {
-
+	
+	private transient Logger log = LoggerFactory.getLogger(M2ReleaseBuildWrapper.class);
+	
 	private transient boolean             doRelease           = false;
 	private transient boolean             closeNexusStage     = true;
 	private transient Map<String, String> versions;
@@ -173,10 +177,12 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				// TODO only re-set the build goals if they are still releaseGoals to avoid mid-air collisions.
 				final MavenModuleSet mmSet = getModuleSet(bld);
 				final boolean localcloseStage;
+				String version = null;
 				synchronized (mmSet) {
 					mmSet.setGoals(originalGoals);
 					// get a local variable so we don't have to synchronise on mmSet any more than we have to.
 					localcloseStage = closeNexusStage;
+					version = getReleaseVersion(mmSet.getRootModule());
 					versions = null;
 				}
 
@@ -185,7 +191,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					try {
 						MavenModule rootModule = mmSet.getRootModule();
 						// TODO grab the version that we have just released...
-						Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId, rootModule.getModuleName().artifactId, null);
+						Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId, rootModule.getModuleName().artifactId, version);
 						if (stage != null) {
 							lstnr.getLogger().println("[M2Release] Closing repository " + stage);
 							client.closeStage(stage, repoDescription);
@@ -245,6 +251,24 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public void setAppendHusonUserName(boolean appendHusonUserName) {
 		this.appendHusonUserName = appendHusonUserName;
 	}
+
+	
+  /**
+   * @return the defaultVersioningMode
+   */
+  public String getDefaultVersioningMode() {
+  	return defaultVersioningMode;
+  }
+
+
+	
+  /**
+   * @param defaultVersioningMode the defaultVersioningMode to set
+   */
+  public void setDefaultVersioningMode(String defaultVersioningMode) {
+  	this.defaultVersioningMode = defaultVersioningMode;
+  }
+
 
 	public boolean isSelectCustomScmCommentPrefix() {
 		return selectCustomScmCommentPrefix;
@@ -315,7 +339,22 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		job.checkPermission(DescriptorImpl.CREATE_RELEASE);
 	}
 
-  /**
+	private String getReleaseVersion(MavenModule moduleName) {
+		String retVal = null;
+		String key = "-Dproject.rel." + moduleName.getModuleName().toString();
+		retVal = versions.get(key);
+		if (retVal == null) {
+			// try autoVersionSubmodules
+			retVal = versions.get("-DreleaseVersion"); //$NON-NLS-1$
+			if (retVal == null) {
+				// we are auto versioning - so take a best guess and hope our last build was of the same version!
+				retVal = moduleName.getVersion().replace("-SNAPSHOT", ""); //$NON-NLS-1$ //$NON-NLS-2$
+			}
+		}
+		return retVal;
+	}
+	
+	/**
 	 * Hudson defines a method {@link Builder#getDescriptor()}, which returns the corresponding
 	 * {@link Descriptor} object. Since we know that it's actually {@link DescriptorImpl}, override the method
 	 * and give a better return type, so that we can access {@link DescriptorImpl} methods more easily. This is
@@ -447,8 +486,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			}
 			return FormValidation.ok();
 		}
-		
-
 	}
 
 }
