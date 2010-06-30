@@ -342,14 +342,17 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	private String getReleaseVersion(MavenModule moduleName) {
 		String retVal = null;
 		String key = "-Dproject.rel." + moduleName.getModuleName().toString();
-		retVal = versions.get(key);
-		if (retVal == null) {
-			// try autoVersionSubmodules
-			retVal = versions.get("-DreleaseVersion"); //$NON-NLS-1$
-			if (retVal == null) {
-				// we are auto versioning - so take a best guess and hope our last build was of the same version!
-				retVal = moduleName.getVersion().replace("-SNAPSHOT", ""); //$NON-NLS-1$ //$NON-NLS-2$
-			}
+		// versions is null if we let Maven work out the version
+		if (versions != null) {
+			retVal = versions.get(key);
+				if (retVal == null) {
+					// try autoVersionSubmodules
+					retVal = versions.get("-DreleaseVersion"); //$NON-NLS-1$
+				}
+		}
+		else {
+			// we are auto versioning - so take a best guess and hope our last build was of the same version!
+			retVal = moduleName.getVersion().replace("-SNAPSHOT", ""); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 		return retVal;
 	}
