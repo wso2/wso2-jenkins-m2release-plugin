@@ -218,7 +218,7 @@ public class M2ReleaseAction implements Action {
 			}
 		}
 		// redirect to status page
-		resp.sendRedirect(project.getUrl());
+		resp.sendRedirect(req.getContextPath()+ '/' + project.getUrl());
 	}
 
 	/**
