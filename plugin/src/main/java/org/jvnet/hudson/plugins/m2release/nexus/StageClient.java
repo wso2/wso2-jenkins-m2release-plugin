@@ -331,7 +331,7 @@ public class StageClient {
 		// TODO? this is missing the targetRepoID which is needed for promote...
 		// XXX lets hope that the description never contains "]]>"
 		return String.format("<?xml version=\"1.0\" encoding=\"UTF-8\"?><promoteRequest><data><stagedRepositoryId>%s</stagedRepositoryId><description><![CDATA[%s]]></description></data></promoteRequest>",
-		                     stage.getStageID());
+		                     stage.getStageID(), description);
 	}
 
 	
