@@ -202,8 +202,10 @@ public class M2ReleaseAction implements Action {
 			}
 		}
 		
+		// TODO specify the badge tooltip text
+		M2ReleaseBadgeAction badge = new M2ReleaseBadgeAction();
 		// schedule release build
-		synchronized (project) {
+		synchronized (project) {			
 			if (project.scheduleBuild(0, new ReleaseCause())) {
 				m2Wrapper.enableRelease();
 				m2Wrapper.setVersions(versions);

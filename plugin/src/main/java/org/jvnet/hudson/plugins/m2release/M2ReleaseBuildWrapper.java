@@ -1,7 +1,7 @@
 /*
  * The MIT License
  * 
- * Copyright (c) 2009, NDS Group Ltd., James Nord
+ * Copyright (c) 2010, NDS Group Ltd., James Nord
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -86,8 +86,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	private transient boolean             appendHusonUserName;
 	private transient String              hudsonUserName;
 
-	public String                         releaseGoals        = DescriptorImpl.DEFAULT_RELEASE_GOALS;
-	public String                         defaultVersioningMode          = DescriptorImpl.DEFAULT_VERSIONING;
+	public String                         releaseGoals                 = DescriptorImpl.DEFAULT_RELEASE_GOALS;
+	public String                         defaultVersioningMode        = DescriptorImpl.DEFAULT_VERSIONING;
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
 	
@@ -158,6 +158,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			}
 			mavenOpts = mmSet.getMavenOpts();
 			
+			// TODO: remove this and pull the release version out when creating the action.
+			M2ReleaseBadgeAction releaseBuildIcon = build.getAction(M2ReleaseBadgeAction.class);
+			releaseBuildIcon.setTooltipText("Release - " + getReleaseVersion(mmSet.getRootModule()));
+
 		}
 		
 		return new Environment() {
