@@ -206,7 +206,7 @@ public class M2ReleaseAction implements Action {
 		M2ReleaseBadgeAction badge = new M2ReleaseBadgeAction();
 		// schedule release build
 		synchronized (project) {			
-			if (project.scheduleBuild(0, new ReleaseCause())) {
+			if (project.scheduleBuild(0, new ReleaseCause(), badge)) {
 				m2Wrapper.enableRelease();
 				m2Wrapper.setVersions(versions);
 				m2Wrapper.setAppendHudsonBuildNumber(appendHudsonBuildNumber);
