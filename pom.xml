@@ -27,9 +27,9 @@
 	</developers>
 
 	<scm>
-		<connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/plugin</connection>
-		<developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release/plugin</developerConnection>
-		<url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/m2release/plugin</url>
+		<connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release</connection>
+		<developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release</developerConnection>
+		<url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/m2release</url>
 	</scm>
 
 	<licenses>
