@@ -396,7 +396,7 @@ public class StageClient {
 			String auth = username + ":" + password;
 			// there is a lot of debate about password and non ISO-8859-1 characters...
 			// see https://bugzilla.mozilla.org/show_bug.cgi?id=41489
-			// Base64 adds a trailing newline - just strip it as whitespace is illegal in Bsae64
+			// Base64 adds a trailing newline - just strip it as whitespace is illegal in Base64
 			String encodedAuth = new Base64().encodeToString(auth.getBytes("ISO-8859-1")).trim();
 			conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
 			log.debug("Encoded Authentication is: "+encodedAuth);

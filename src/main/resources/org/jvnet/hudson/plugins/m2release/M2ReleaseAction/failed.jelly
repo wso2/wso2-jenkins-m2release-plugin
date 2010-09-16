@@ -1,0 +1,13 @@
+<!--
+	The user tried to schedule a build but it failed.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+	<l:layout>
+		<l:main-panel>
+			<h1>Scheduling the release failed.</h1>
+			<p>This may be because another build is already scheduled.
+			Please use the back feature of your browser and try to re-submit the request.
+			</p>
+		</l:main-panel>
+	</l:layout>
+</j:jelly>

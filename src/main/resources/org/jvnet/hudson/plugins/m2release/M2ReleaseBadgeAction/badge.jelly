@@ -1,5 +1,5 @@
 <j:jelly xmlns:j="jelly:core">
 	<img width="16" height="16"
-         title="${it.tooltip}"
+         title="${it.tooltipText}"
 	     src="${imagesURL}/16x16/package.gif"/>
 </j:jelly>  

@@ -118,7 +118,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			}
 			// reset for the next build.
 			doRelease = false;
-
+			
 			mmSet = getModuleSet(build);
 			if (mmSet != null) {
 				originalGoals = mmSet.getGoals();
@@ -158,10 +158,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			}
 			mavenOpts = mmSet.getMavenOpts();
 			
-			// TODO: remove this and pull the release version out when creating the action.
-			M2ReleaseBadgeAction releaseBuildIcon = build.getAction(M2ReleaseBadgeAction.class);
-			releaseBuildIcon.setTooltipText("Release - " + getReleaseVersion(mmSet.getRootModule()));
-
+			build.addAction(new M2ReleaseBadgeAction("Release - " + getReleaseVersion(mmSet.getRootModule())));
 		}
 		
 		return new Environment() {
@@ -199,7 +196,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						if (stage != null) {
 							lstnr.getLogger().println("[M2Release] Closing repository " + stage);
 							client.closeStage(stage, repoDescription);
-							lstnr.getLogger().append("[M2Release] Closed staging repository.");
+							lstnr.getLogger().println("[M2Release] Closed staging repository.");
 						}
 						else {
 							retVal = false;

@@ -202,11 +202,9 @@ public class M2ReleaseAction implements Action {
 			}
 		}
 		
-		// TODO specify the badge tooltip text
-		M2ReleaseBadgeAction badge = new M2ReleaseBadgeAction();
 		// schedule release build
 		synchronized (project) {			
-			if (project.scheduleBuild(0, new ReleaseCause(), badge)) {
+			if (project.scheduleBuild(0, new ReleaseCause())) {
 				m2Wrapper.enableRelease();
 				m2Wrapper.setVersions(versions);
 				m2Wrapper.setAppendHudsonBuildNumber(appendHudsonBuildNumber);
@@ -217,6 +215,9 @@ public class M2ReleaseAction implements Action {
 				m2Wrapper.setScmCommentPrefix(scmCommentPrefix);
 				m2Wrapper.setAppendHusonUserName(appendHusonUserName);
 				m2Wrapper.setHudsonUserName(Hudson.getAuthentication().getName());
+			}
+			else {
+				resp.sendRedirect(req.getContextPath()+ '/' + project.getUrl() + '/' + getUrlName() + "/failed");
 			}
 		}
 		// redirect to status page

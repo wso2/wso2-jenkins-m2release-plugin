@@ -49,16 +49,6 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	}
 
 	/**
-	 * Construct a new BadgeIcon to a Maven release build.
-	 * 
-	 * @deprecated users should use the {@link #M2ReleaseBadgeAction(String)} constructor which takes the tooltip text at construction time.
-	 *        the tool tip text that should be displayed with the badge.
-	 */
-	@Deprecated
-	public M2ReleaseBadgeAction() {
-	}
-
-	/**
 	 * Gets the string to be displayed.
 	 * 
 	 * @return <code>null</code> as we don't display any text to the user.
@@ -92,14 +82,5 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 		return tooltipText;
 	}
 
-	/**
-	 * Sets the tool tip text that should be displayed to the user.
-	 * 
-	 * @deprecated this method will be removed in a future release - and
-	 */
-	@Deprecated
-	public void setTooltipText(String tooltipText) {
-		this.tooltipText = tooltipText;
-	}
 
 }
