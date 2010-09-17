@@ -215,13 +215,15 @@ public class M2ReleaseAction implements Action {
 				m2Wrapper.setScmCommentPrefix(scmCommentPrefix);
 				m2Wrapper.setAppendHusonUserName(appendHusonUserName);
 				m2Wrapper.setHudsonUserName(Hudson.getAuthentication().getName());
+				// redirect to project page
+				resp.sendRedirect(req.getContextPath()+ '/' + project.getUrl());
 			}
 			else {
+				// redirect to error page.
+				// TODO try and get this to go back to the form page with an error at the top.
 				resp.sendRedirect(req.getContextPath()+ '/' + project.getUrl() + '/' + getUrlName() + "/failed");
 			}
 		}
-		// redirect to status page
-		resp.sendRedirect(req.getContextPath()+ '/' + project.getUrl());
 	}
 
 	/**
