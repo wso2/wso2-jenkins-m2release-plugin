@@ -173,13 +173,13 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				if (!env.containsKey("maven.home")) {
 					env.put("maven.home", mmSet.getMaven().getHome());
 				}
-				/*
 				//XXX are these already set?
 				if (!env.containsKey("M2_HOME")) {
 					env.put("M2_HOME", mmSet.getMaven().getHome());
 				}
-				if (!env.containsKey("java.home")) {
-					env.put("java.home", mmSet.getJDK().getHome());
+				/*
+				if (!env.containsKey("JAVA_HOME")) {
+					env.put("JAVA_HOME", mmSet.getJDK().getHome());
 				}
 				*/
 			};
