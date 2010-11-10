@@ -219,6 +219,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					}
 					catch (StageException ex) {
 						lstnr.fatalError("[M2Release] Could not close repository , %s\n", ex.toString());
+						log.error("[M2Release] Could not close repository", ex);
 						retVal = false;
 					}
 				}

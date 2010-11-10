@@ -70,6 +70,6 @@ public class StageException extends IOException {
 
 	@Override
 	public String toString() {
-		return "boo " + super.toString();
+		return "StageException " + super.toString();
 	}
 }
