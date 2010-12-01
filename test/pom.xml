@@ -3,7 +3,7 @@
 	<groupId>org.hudson-ci.m2release</groupId>
 	<artifactId>HUDSON-7886</artifactId>
 	<packaging>jar</packaging>
-	<version>1.1</version>
+	<version>1.2-SNAPSHOT</version>
 	<name>HUDSON-7886</name>
 	<url>http://issues.hudson-ci.org/browse/HUDSON-7886</url>
 
@@ -34,8 +34,8 @@
 	</build>
 
 	<scm>
-		<connection>scm:svn:https://svn.java.net/svn/hudson~svn/tags/HUDSON-7886-1.1</connection>
-		<developerConnection>scm:svn:https://svn.java.net/svn/hudson~svn/tags/HUDSON-7886-1.1</developerConnection>
+		<connection>scm:svn:https://svn.java.net/svn/hudson~svn/trunk/hudson/plugins/m2release/test/</connection>
+		<developerConnection>scm:svn:https://svn.java.net/svn/hudson~svn/trunk/hudson/plugins/m2release/test</developerConnection>
 	</scm>
 	
 	<distributionManagement>
