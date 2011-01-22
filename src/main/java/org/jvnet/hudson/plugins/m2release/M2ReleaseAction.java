@@ -1,7 +1,7 @@
 /*
  * The MIT License
  * 
- * Copyright (c) 2009, NDS Group Ltd., James Nord
+ * Copyright (c) 2009, NDS Group Ltd., James Nord, CloudBees, Inc.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,13 +30,16 @@ import hudson.model.Hudson;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
 
+import hudson.model.PermalinkProjectAction;
 import org.jvnet.hudson.plugins.m2release.M2ReleaseBuildWrapper.DescriptorImpl;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
@@ -48,9 +51,9 @@ import org.kohsuke.stapler.StaplerResponse;
  * @author James Nord
  * @version 0.3
  */
-public class M2ReleaseAction implements Action {
+public class M2ReleaseAction implements PermalinkProjectAction {
 
-	private MavenModuleSet project;
+    private MavenModuleSet project;
 	private String versioningMode;
 	private boolean selectCustomScmCommentPrefix;
 	private boolean selectAppendHudsonUsername;
@@ -62,8 +65,11 @@ public class M2ReleaseAction implements Action {
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 	}
 
+    public List<Permalink> getPermalinks() {
+        return PERMALINKS;
+    }
 
-	public String getDisplayName() {
+    public String getDisplayName() {
 		return Messages.ReleaseAction_perform_release_name();
 	}
 
@@ -236,4 +242,6 @@ public class M2ReleaseAction implements Action {
 	private String getString(String key, Map<?,?> httpParams) {
 		return (String)(((Object[])httpParams.get(key))[0]);
 	}
+
+    private static final List<Permalink> PERMALINKS = Collections.singletonList(LastReleasePermalink.INSTANCE);
 }

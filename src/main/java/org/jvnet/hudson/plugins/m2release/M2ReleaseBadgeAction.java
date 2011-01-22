@@ -28,15 +28,23 @@ import hudson.model.BuildBadgeAction;
 
 /**
  * The M2ReleaseBadgeAction displays a small icon next to any release builds in the build history.
+ *
+ * <p>
+ * This object also remembers the release in a machine readable form so that
+ * other plugins can introspect that the release had happened.
  * 
  * @author domi
  * @author teilo
- * 
  */
 public class M2ReleaseBadgeAction implements BuildBadgeAction {
 
 	/** The tooltip text displayed to the user with the badge. */
-	private String tooltipText;
+	private transient String tooltipText;
+
+    /**
+     * Version number that was released.
+     */
+    private String versionNumber;
 
 	/**
 	 * Construct a new BadgeIcon to a Maven release build.
@@ -44,9 +52,16 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	 * @param tooltipText
 	 *        the tool tip text that should be displayed with the badge.
 	 */
-	public M2ReleaseBadgeAction(String tooltipText) {
-		this.tooltipText = tooltipText;
+	public M2ReleaseBadgeAction(String versionNumber) {
+		this.versionNumber = versionNumber;
 	}
+
+    public Object readResolve() {
+        // try to recover versionNumber from tooltipText
+        if (versionNumber==null && tooltipText.startsWith("Release - "))
+            versionNumber = tooltipText.substring("Release - ".length());
+        return this;
+    }
 
 	/**
 	 * Gets the string to be displayed.
@@ -79,8 +94,16 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	 * Gets the tool tip text that should be displayed to the user.
 	 */
 	public String getTooltipText() {
-		return tooltipText;
+		return "Release - "+versionNumber;
 	}
 
-
+    /**
+     * Gets the version number that was released.
+     *
+     * @return
+     *      Can be null if we are dealing with very legacy data that doesn't contain this information.
+     */
+    public String getVersionNumber() {
+        return versionNumber;
+    }
 }
