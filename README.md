@@ -12,5 +12,5 @@ Wiki and Info
 User documentation for the plugin can be found on the [wiki]
 
 [wiki]: http://wiki.jenkins-ci.org/display/JENKINS/M2+Release+Plugin
-[MIT Licence]: https://github.com/jenkinsci/m2release-plugin/raw/master/LICENCE.TXT
+[MIT Licence]: https://github.com/jenkinsci/m2release-plugin/raw/master/LICENCE.txt
 
