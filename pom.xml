@@ -5,16 +5,22 @@
 	<artifactId>m2release</artifactId>
 	<packaging>hpi</packaging>
 	<version>0.7.0-SNAPSHOT</version>
-	<name>Hudson Maven Release Plug-in Plug-in</name>
-	<description>A plug-in that enables you to perform releases using the maven-release-plugin from Hudson.</description>
-	<url>http://wiki.hudson-ci.org/display/HUDSON/M2+Release+Plugin</url>
 
 	<parent>
-		<groupId>org.jvnet.hudson.plugins</groupId>
+		<groupId>org.jenkins-ci.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>1.363</version>
+  		<version>1.399</version>
 	</parent>
 
+	<name>Jenkins Maven Release Plug-in Plug-in</name>
+	<description>A plug-in that enables you to perform releases using the maven-release-plugin from Hudson.</description>
+	<url>http://wiki.jenkins-ci.org/display/JENKINS/M2+Release+Plugin</url>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+	</properties>
+	
 	<developers>
 		<developer>
 			<id>teilo</id>
@@ -27,23 +33,26 @@
 	</developers>
 
 	<scm>
-		<connection>scm:svn:https://guest@svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release</connection>
-		<developerConnection>scm:svn:https://svn.dev.java.net/svn/hudson/trunk/hudson/plugins/m2release</developerConnection>
-		<url>https://hudson.dev.java.net/source/browse/hudson/hudson/plugins/m2release</url>
+		<connection>scm:git:git://github.com/jenkinsci/m2release-plugin.git</connection>
+		<developerConnection>scm:git:https://github.com/jenkinsci/m2release-plugin.git</developerConnection>
+		<url>https://github.com/jenkinsci/m2release-plugin/</url>
 	</scm>
 
 	<licenses>
 		<license>
-			<name>GPL</name>
-			<url>http://www.gnu.org/licenses/gpl.txt</url>
+			<name>MIT</name>
+			<url>https://github.com/jenkinsci/m2release-plugin/blob/master/LICENCE.txt</url>
 			<distribution>repo</distribution>
 		</license>
 	</licenses>
 
 	<dependencies>
 		<dependency>
-			<groupId>org.jvnet.hudson.main</groupId>
+			<groupId>org.jenkins-ci.main</groupId>
 			<artifactId>maven-plugin</artifactId>
+			<version>${project.parent.version}</version> 
+			<!-- really should be provided but this causes a failure -->
+			<scope>compile</scope> 
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>
@@ -51,29 +60,15 @@
 			<version>1.6.0</version>
 		</dependency>
 	</dependencies>
-
-	<build>
-		<pluginManagement>
-			<plugins>
-				<!--  
-					The following plugins are used without versions in the Hudson HPI lifecycle.
-					This causes unreproduceable builds and Maven3 spits out big warnings.
-				 -->
-				<plugin>
-					<artifactId>maven-enforcer-plugin</artifactId>
-					<version>1.0-beta-1</version>
-				</plugin>
-				<plugin>
-					<groupId>org.kohsuke</groupId>
-					<artifactId>access-modifier-checker</artifactId>
-					<version>1.0</version>
-				</plugin>
-			</plugins>
-		</pluginManagement>
-	</build>
-
-	<properties>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-	</properties>
+	
+	<!-- Jenkins is no longer synced to central so we need to bootstrap -->
+	<repositories>
+		<repository>
+			<id>m.g.o</id>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<url>http://maven.glassfish.org/content/groups/public/</url>
+		</repository>
+	</repositories>
 </project>

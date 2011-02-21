@@ -1,6 +1,7 @@
 #eclipse files
 .project
 .settings
+.classpath
 bin
 
 # Build output
