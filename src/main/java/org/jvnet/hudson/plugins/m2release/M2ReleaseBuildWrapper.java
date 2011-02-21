@@ -164,28 +164,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return new Environment() {
 
 			@Override
-			public void buildEnvVars(java.util.Map<String, String> env) {
-				// XXX these should all be handled by hudson!?
-				if (mavenOpts != null && !env.containsKey("MAVEN_OPTS")) {
-					env.put("MAVEN_OPTS", mavenOpts);
-				}
-				// maven.home is normally set by the mvn bat/shell script but Hudson doesn't use that..
-				if (!env.containsKey("maven.home")) {
-					env.put("maven.home", mmSet.getMaven().getHome());
-				}
-				//XXX are these already set?
-				if (!env.containsKey("M2_HOME")) {
-					env.put("M2_HOME", mmSet.getMaven().getHome());
-				}
-				/*
-				if (!env.containsKey("JAVA_HOME")) {
-					env.put("JAVA_HOME", mmSet.getJDK().getHome());
-				}
-				*/
-			};
-
-
-			@Override
 			public boolean tearDown(AbstractBuild bld, BuildListener lstnr) throws IOException,
 			                                                               InterruptedException {
 				boolean retVal = true;
