@@ -102,12 +102,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 
 	@Override
-	public Environment setUp(AbstractBuild build, Launcher launcher, final BuildListener listener)
+	public Environment setUp(@SuppressWarnings("rawtypes") AbstractBuild build, Launcher launcher, final BuildListener listener)
 	                                                                                              throws IOException,
 	                                                                                              InterruptedException {
 		final String originalGoals;
 		final MavenModuleSet mmSet;
-		final String mavenOpts;
 		
 		synchronized (getModuleSet(build)) {
 			if (!doRelease) {
@@ -156,7 +155,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				// can this be so?
 				originalGoals = null;
 			}
-			mavenOpts = mmSet.getMavenOpts();
 			
 			build.addAction(new M2ReleaseBadgeAction("Release - " + getReleaseVersion(mmSet.getRootModule())));
 		}
@@ -164,7 +162,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return new Environment() {
 
 			@Override
-			public boolean tearDown(AbstractBuild bld, BuildListener lstnr) throws IOException,
+			public boolean tearDown(@SuppressWarnings("rawtypes") AbstractBuild bld, BuildListener lstnr) throws IOException,
 			                                                               InterruptedException {
 				boolean retVal = true;
 				// TODO only re-set the build goals if they are still releaseGoals to avoid mid-air collisions.
@@ -320,16 +318,16 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 
 	@Override
-	public Action getProjectAction(AbstractProject job) {
+	public Action getProjectAction(@SuppressWarnings("rawtypes") AbstractProject job) {
 		return new M2ReleaseAction((MavenModuleSet) job, defaultVersioningMode, selectCustomScmCommentPrefix, selectAppendHudsonUsername);
 	}
 
-	public static boolean hasReleasePermission(AbstractProject job) {
+	public static boolean hasReleasePermission(@SuppressWarnings("rawtypes") AbstractProject job) {
 		return job.hasPermission(DescriptorImpl.CREATE_RELEASE);
 	}
 
 
-	public static void checkReleasePermission(AbstractProject job) {
+	public static void checkReleasePermission(@SuppressWarnings("rawtypes") AbstractProject job) {
 		job.checkPermission(DescriptorImpl.CREATE_RELEASE);
 	}
 

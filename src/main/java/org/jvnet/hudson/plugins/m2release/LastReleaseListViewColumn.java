@@ -47,15 +47,15 @@ public class LastReleaseListViewColumn extends ListViewColumn {
     public Info getLastReleaseInfoOf(AbstractMavenProject<?,?> project) {
         Run<?,?> r = LastReleasePermalink.INSTANCE.resolve(project);
         if (r!=null)
-            return new Info((AbstractBuild)r);
+            return new Info((AbstractBuild<?,?>)r);
         return null;
     }
     
     public static class Info {
-        public final AbstractBuild build;
+        public final AbstractBuild<?,?> build;
         public final M2ReleaseBadgeAction action;
 
-        Info(AbstractBuild build) {
+        Info(AbstractBuild<?,?> build) {
             this.build = build;
             this.action = build.getAction(M2ReleaseBadgeAction.class);
             assert action!=null;

@@ -48,7 +48,7 @@ public class LastReleasePermalink extends Permalink {
 
     @Override
     public Run<?,?> resolve(Job<?, ?> job) {
-        for (Run run: job.getBuilds()){
+        for (Run<?,?> run: job.getBuilds()){
             M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
             if (a!=null && run.getResult()== Result.SUCCESS)
                 return run;
