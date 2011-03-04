@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -191,6 +192,11 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 				if (keyStr.startsWith("-Dproject.")) {
 					versions.put(keyStr, getString(keyStr, httpParams));
 				}
+				// check dev is a snapshot
+				if (keyStr.startsWith("-Dproject.dev.")) {
+		            // TODO make this nicer by showing a html error page.
+		            enforceDeveloperVersion(getString(keyStr, httpParams));
+				}
 			}
 		} 
 		else if (DescriptorImpl.VERSIONING_SPECIFY_VERSION.equals(versioningMode)) {
@@ -198,13 +204,11 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 
 			final String releaseVersion = getString("releaseVersion", httpParams); //$NON-NLS-1$
 			final String developmentVersion = getString("developmentVersion", httpParams); //$NON-NLS-1$
-
-			for(MavenModule mavenModule : getModules()) {
-				final String name = mavenModule.getModuleName().toString();
-				
-				versions.put(String.format("-Dproject.dev.%s", name), developmentVersion); //$NON-NLS-1$
-				versions.put(String.format("-Dproject.rel.%s", name), releaseVersion); //$NON-NLS-1$
-			}
+			
+			versions.put("-DdevelopmentVersion", developmentVersion);
+			versions.put("-DreleaseVersion", releaseVersion);
+			// TODO make this nicer by showing a html error page.
+			enforceDeveloperVersion(developmentVersion);
 		}
 		
 		// schedule release build
@@ -242,5 +246,15 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		return (String)(((Object[])httpParams.get(key))[0]);
 	}
 
+	/**
+	 * Enforces that the developer version is actually a developer version and ends with "-SNAPSHOT".
+	 * @throws IllegalArgumentException if the version does not end with "-SNAPSHOT"
+	 */
+	private void enforceDeveloperVersion(String version) throws IllegalArgumentException {
+	    if (!version.endsWith("-SNAPSHOT")) {
+            throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Developer Version (%s) is not a valid version (it must end with \"-SNAPSHOT\")", version)); 
+	    }
+	}
+	
     private static final List<Permalink> PERMALINKS = Collections.singletonList(LastReleasePermalink.INSTANCE);
 }
