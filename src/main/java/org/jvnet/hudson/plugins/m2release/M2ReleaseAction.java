@@ -205,12 +205,18 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			final String releaseVersion = getString("releaseVersion", httpParams); //$NON-NLS-1$
 			final String developmentVersion = getString("developmentVersion", httpParams); //$NON-NLS-1$
 			
-			versions.put("-DdevelopmentVersion", developmentVersion);
-			versions.put("-DreleaseVersion", releaseVersion);
-			// TODO make this nicer by showing a html error page.
-			enforceDeveloperVersion(developmentVersion);
+			// XXX this probably breaks something so don't switch this on in this release
+			//versions.put("-DdevelopmentVersion", developmentVersion);
+			//versions.put("-DreleaseVersion", releaseVersion);
+            
+            for(MavenModule mavenModule : getModules()) {
+                final String name = mavenModule.getModuleName().toString();
+                versions.put(String.format("-Dproject.dev.%s", name), developmentVersion); //$NON-NLS-1$               
+                versions.put(String.format("-Dproject.rel.%s", name), releaseVersion); //$NON-NLS-1$
+            }
+            // TODO make this nicer by showing a html error page.
+            enforceDeveloperVersion(developmentVersion);
 		}
-		
 		// schedule release build
 		synchronized (project) {			
 			if (project.scheduleBuild(0, new ReleaseCause())) {
