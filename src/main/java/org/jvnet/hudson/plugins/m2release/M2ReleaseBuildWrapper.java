@@ -31,13 +31,13 @@ import hudson.maven.MavenBuild;
 import hudson.maven.MavenModule;
 import hudson.maven.MavenModuleSet;
 import hudson.maven.MavenModuleSetBuild;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
 import hudson.model.Action;
 import hudson.model.BuildListener;
+import hudson.model.Item;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
 import hudson.model.Descriptor;
 import hudson.model.Hudson;
-import hudson.model.Item;
 import hudson.security.Permission;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
@@ -47,12 +47,12 @@ import hudson.util.FormValidation;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Map;
 
 import javax.servlet.ServletException;
 
 import net.sf.json.JSONObject;
 
+import org.apache.maven.scm.ScmTag;
 import org.jvnet.hudson.plugins.m2release.nexus.Stage;
 import org.jvnet.hudson.plugins.m2release.nexus.StageClient;
 import org.jvnet.hudson.plugins.m2release.nexus.StageException;
@@ -77,25 +77,27 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	
 	private transient boolean             doRelease           = false;
 	private transient boolean             closeNexusStage     = true;
-	private transient Map<String, String> versions;
+
+    private transient String              releaseVersion;
+	private transient String              developmentVersion;
+	
 	private transient boolean             appendHudsonBuildNumber;
 	private transient String              repoDescription;
 	private transient String              scmUsername;
 	private transient String              scmPassword;
 	private transient String              scmCommentPrefix;
+	
 	private transient boolean             appendHusonUserName;
 	private transient String              hudsonUserName;
 
 	public String                         releaseGoals                 = DescriptorImpl.DEFAULT_RELEASE_GOALS;
-	public String                         defaultVersioningMode        = DescriptorImpl.DEFAULT_VERSIONING;
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
 	
 	@DataBoundConstructor
-	public M2ReleaseBuildWrapper(String releaseGoals, String defaultVersioningMode, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
+	public M2ReleaseBuildWrapper(String releaseGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
 		super();
 		this.releaseGoals = releaseGoals;
-		this.defaultVersioningMode = defaultVersioningMode;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 	}
@@ -122,41 +124,38 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			if (mmSet != null) {
 				originalGoals = mmSet.getGoals();
 				
-				String thisBuildGoals = releaseGoals;
+				StringBuilder buildGoals = new StringBuilder();
 
-				if (versions != null) {
-					thisBuildGoals = generateVersionString(build.getNumber()) + thisBuildGoals;
-				}
+				buildGoals.append("-DdevelopmentVersion=").append(developmentVersion).append(' ');
+				buildGoals.append("-DreleaseVersion=").append(releaseVersion).append(' ');
 				
 				if (scmUsername != null) {
-					thisBuildGoals = "-Dusername=" + scmUsername + " " + thisBuildGoals;
+					buildGoals.append("-Dusername=").append(scmUsername).append(' ');
 				}
 				
 				if (scmPassword != null) {
-					thisBuildGoals = "-Dpassword=" + scmPassword + " " + thisBuildGoals;
+					buildGoals.append("-Dpassword=").append(scmPassword).append(' ');					
 				}
 				
 				if (scmCommentPrefix != null) {
-					final StringBuilder sb = new StringBuilder();
-					sb.append("\"-DscmCommentPrefix=");
-					sb.append(scmCommentPrefix);
+					buildGoals.append("\"-DscmCommentPrefix=");
+					buildGoals.append(scmCommentPrefix);
 					if(appendHusonUserName) {
-						sb.append(String.format("(%s)", hudsonUserName));
+					    buildGoals.append(String.format("(%s)", hudsonUserName));
 					}
-					sb.append("\" ");
-					sb.append(thisBuildGoals);
-					
-					thisBuildGoals = sb.toString();
+					buildGoals.append("\" ");
 				}
 				
-				mmSet.setGoals(thisBuildGoals);
+				buildGoals.append(releaseGoals);
+				
+				mmSet.setGoals(buildGoals.toString());
 			}
 			else {
 				// can this be so?
 				originalGoals = null;
 			}
 			
-			build.addAction(new M2ReleaseBadgeAction("Release - " + getReleaseVersion(mmSet.getRootModule())));
+			build.addAction(new M2ReleaseBadgeAction("Release - " + releaseVersion));
 		}
 		
 		return new Environment() {
@@ -168,13 +167,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				// TODO only re-set the build goals if they are still releaseGoals to avoid mid-air collisions.
 				final MavenModuleSet mmSet = getModuleSet(bld);
 				final boolean localcloseStage;
-				String version = null;
 				synchronized (mmSet) {
 					mmSet.setGoals(originalGoals);
-					// get a local variable so we don't have to synchronise on mmSet any more than we have to.
+					// get a local variable so we don't have to synchronize on mmSet any more than we have to.
 					localcloseStage = closeNexusStage;
-					version = getReleaseVersion(mmSet.getRootModule());
-					versions = null;
 				}
 
 				if (localcloseStage) {
@@ -182,7 +178,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					try {
 						MavenModule rootModule = mmSet.getRootModule();
 						// TODO grab the version that we have just released...
-						Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId, rootModule.getModuleName().artifactId, version);
+						Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId, rootModule.getModuleName().artifactId, releaseVersion);
 						if (stage != null) {
 							lstnr.getLogger().println("[M2Release] Closing repository " + stage);
 							client.closeStage(stage, repoDescription);
@@ -209,12 +205,14 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		doRelease = true;
 	}
 
+    public void setReleaseVersion(String releaseVersion) {
+        this.releaseVersion = releaseVersion;
+    }
 
-	void setVersions(Map<String, String> versions) {
-		// expects a map of key="-Dproject.rel.${m.moduleName}" value="version"
-		this.versions = versions;
-	}
 
+    public void setDevelopmentVersion(String developmentVersion) {
+        this.developmentVersion = developmentVersion;
+    }
 
 	public void setAppendHudsonBuildNumber(boolean appendHudsonBuildNumber) {
 		this.appendHudsonBuildNumber = appendHudsonBuildNumber;
@@ -240,28 +238,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		this.scmCommentPrefix = scmCommentPrefix;
 	}
 	
-	public void setAppendHusonUserName(boolean appendHusonUserName) {
+
+    public void setAppendHusonUserName(boolean appendHusonUserName) {
 		this.appendHusonUserName = appendHusonUserName;
 	}
-
 	
-  /**
-   * @return the defaultVersioningMode
-   */
-  public String getDefaultVersioningMode() {
-  	return defaultVersioningMode;
-  }
-
-
-	
-  /**
-   * @param defaultVersioningMode the defaultVersioningMode to set
-   */
-  public void setDefaultVersioningMode(String defaultVersioningMode) {
-  	this.defaultVersioningMode = defaultVersioningMode;
-  }
-
-
 	public boolean isSelectCustomScmCommentPrefix() {
 		return selectCustomScmCommentPrefix;
 	}
@@ -281,23 +262,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public void setHudsonUserName(String hudsonUserName) {
 		this.hudsonUserName = hudsonUserName;
 	}
-
-	private String generateVersionString(int buildNumber) {
-		// -Dproject.rel.org.mycompany.group.project=version ....
-		StringBuilder sb = new StringBuilder();
-		for (String key : versions.keySet()) {
-			sb.append(key);
-			sb.append('=');
-			sb.append(versions.get(key));
-			if (appendHudsonBuildNumber && key.startsWith("-Dproject.rel")) { //$NON-NLS-1$
-				sb.append('-');
-				sb.append(buildNumber);
-			}
-			sb.append(' ');
-		}
-		return sb.toString();
-	}
-
 
 	private MavenModuleSet getModuleSet(AbstractBuild<?,?> build) {
 		if (build instanceof MavenBuild) {
@@ -319,7 +283,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	@Override
 	public Action getProjectAction(@SuppressWarnings("rawtypes") AbstractProject job) {
-		return new M2ReleaseAction((MavenModuleSet) job, defaultVersioningMode, selectCustomScmCommentPrefix, selectAppendHudsonUsername);
+		return new M2ReleaseAction((MavenModuleSet) job, selectCustomScmCommentPrefix, selectAppendHudsonUsername);
 	}
 
 	public static boolean hasReleasePermission(@SuppressWarnings("rawtypes") AbstractProject job) {
@@ -331,23 +295,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		job.checkPermission(DescriptorImpl.CREATE_RELEASE);
 	}
 
-	private String getReleaseVersion(MavenModule moduleName) {
-		String retVal = null;
-		String key = "-Dproject.rel." + moduleName.getModuleName().toString();
-		// versions is null if we let Maven work out the version
-		if (versions != null) {
-			retVal = versions.get(key);
-				if (retVal == null) {
-					// try autoVersionSubmodules
-					retVal = versions.get("-DreleaseVersion"); //$NON-NLS-1$
-				}
-		}
-		else {
-			// we are auto versioning - so take a best guess and hope our last build was of the same version!
-			retVal = moduleName.getVersion().replace("-SNAPSHOT", ""); //$NON-NLS-1$ //$NON-NLS-2$
-		}
-		return retVal;
-	}
 	
 	/**
 	 * Hudson defines a method {@link Builder#getDescriptor()}, which returns the corresponding
@@ -371,11 +318,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		                                                                      Messages._CreateReleasePermission_Description(),
 		                                                                      Hudson.ADMINISTER); 
 
-		public static final String     VERSIONING_AUTO = "auto";                         //$NON-NLS-1$
-		public static final String     VERSIONING_SPECIFY_VERSIONS = "specify_versions"; //$NON-NLS-1$
-		public static final String     VERSIONING_SPECIFY_VERSION = "specify_version";   //$NON-NLS-1$
-		public static final String     DEFAULT_VERSIONING = VERSIONING_AUTO;             //$NON-NLS-1$
-		
+
 		public static final boolean    DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX = false;
 		public static final boolean    DEFAULT_SELECT_APPEND_HUDSON_USERNAME    = false;
 		

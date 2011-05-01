@@ -8,35 +8,14 @@
 		<l:main-panel>
 			<f:form method="post" action="submit">
 				<f:section title="Perform Maven Release">
-					<f:entry title="Versioning mode" help="/plugin/m2release/help-actionRelease-versioningMode.html">
-						<f:radioBlock name="versioningMode" value="auto" title="Maven will decide the version" checked="${it.versioningMode == null || 'auto' == it.versioningMode}">
-						</f:radioBlock>
-						<f:radioBlock name="versioningMode" value="specify_versions" title="Specify version(s)" checked="${'specify_versions' == it.versioningMode}">
-							<j:forEach var="m" items="${it.modules}">
-								<f:section title="${m.moduleName}">
-									<f:entry title="Release Version">
-										<f:textbox name="-Dproject.rel.${m.moduleName}" value="${it.computeReleaseVersion(m.version)}" />
-									</f:entry>
-									<f:entry title="Development version">
-										<f:textbox name="-Dproject.dev.${m.moduleName}" value="${it.computeNextVersion(m.version)}" />
-									</f:entry>
-								</f:section>
-							</j:forEach>
-							<f:entry title="Append Hudson Build Number">
-								<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
-							</f:entry>
-						</f:radioBlock>
-						<f:radioBlock name="versioningMode" value="specify_version" title="Specify one version for all modules" checked="${'specify_version' == it.versioningMode}">
-							<f:entry title="Release Version">
-								<f:textbox name="releaseVersion" value="${it.computeReleaseVersion(it.rootModule.version)}" />
-							</f:entry>
-							<f:entry title="Development version">
-								<f:textbox name="developmentVersion" value="${it.computeNextVersion(it.rootModule.version)}" />
-							</f:entry>
-							<f:entry title="Append Hudson Build Number">
-								<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
-							</f:entry>
-						</f:radioBlock>
+					<f:entry title="Release Version">
+						<f:textbox name="releaseVersion" value="${it.computeReleaseVersion(it.rootModule.version)}" />
+					</f:entry>
+					<f:entry title="Development version">
+						<f:textbox name="developmentVersion" value="${it.computeNextVersion(it.rootModule.version)}" />
+					</f:entry>
+					<f:entry title="Append Hudson Build Number">
+						<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
 					</f:entry>
 
 					<f:optionalBlock name="specifyScmCredentials" title="Specify SCM login/password" checked="false">

@@ -94,14 +94,14 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	 * Gets the tool tip text that should be displayed to the user.
 	 */
 	public String getTooltipText() {
-		return "Release - "+versionNumber;
+		return "Release - " + versionNumber;
 	}
 
     /**
      * Gets the version number that was released.
      *
      * @return
-     *      Can be null if we are dealing with very legacy data that doesn't contain this information.
+     *      Can be <code>null</code> if we are dealing with very legacy data that doesn't contain this information.
      */
     public String getVersionNumber() {
         return versionNumber;

@@ -26,11 +26,11 @@ package org.jvnet.hudson.plugins.m2release;
 import hudson.maven.MavenModule;
 import hudson.maven.MavenModuleSet;
 import hudson.model.Hudson;
+import hudson.model.PermalinkProjectAction;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -39,8 +39,8 @@ import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
 
-import hudson.model.PermalinkProjectAction;
-import org.jvnet.hudson.plugins.m2release.M2ReleaseBuildWrapper.DescriptorImpl;
+import org.apache.maven.shared.release.versions.DefaultVersionInfo;
+import org.apache.maven.shared.release.versions.VersionParseException;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 
@@ -54,13 +54,11 @@ import org.kohsuke.stapler.StaplerResponse;
 public class M2ReleaseAction implements PermalinkProjectAction {
 
     private MavenModuleSet project;
-	private String versioningMode;
 	private boolean selectCustomScmCommentPrefix;
 	private boolean selectAppendHudsonUsername;
 	
-	public M2ReleaseAction(MavenModuleSet project, String versioningMode, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
+	public M2ReleaseAction(MavenModuleSet project, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
 		this.project = project;
-		this.versioningMode = versioningMode;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 	}
@@ -87,14 +85,6 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		return "m2release"; //$NON-NLS-1$
 	}
 
-	public String getVersioningMode() {
-		return versioningMode; 
-	}
-	
-	public void setVersioningMode(String versioningMode) {
-		this.versioningMode = versioningMode;
-	}
-	
 	public boolean isSelectCustomScmCommentPrefix() {
 		return selectCustomScmCommentPrefix;
 	}
@@ -120,43 +110,35 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	}
 	
 	public String computeReleaseVersion(String version) {
-		return version.replace("-SNAPSHOT", ""); //$NON-NLS-1$ //$NON-NLS-2$
+        try {
+            DefaultVersionInfo dvi = new DefaultVersionInfo(version);
+            return dvi.getReleaseVersionString();
+        }
+        catch (VersionParseException vpEx) {
+            Logger logger = Logger.getLogger(this.getClass().getName());
+            logger.log(Level.WARNING, "Failed to compute next version.", vpEx);
+            return version.replace("-SNAPSHOT", "");
+        }
 	}
 	
 	public String computeRepoDescription() {
-		return "Release " + computeReleaseVersion(project.getRootModule().getVersion()) + " of " + project.getRootModule().getName();
+		StringBuilder sb = new StringBuilder();
+		sb.append(project.getRootModule().getName());
+		sb.append(':');
+		sb.append(computeReleaseVersion(project.getRootModule().getVersion()));
+		return sb.toString();
 	}
 
 	public String computeNextVersion(String version) {
-		/// XXX would be nice to use maven to do this...
-		/// tip: see DefaultVersionInfo.getNextVersion() in org.apache.maven.release:maven-release-manager
-		String retVal = computeReleaseVersion(version);
-		// get the integer after the last "."
-		int dotIdx = retVal.lastIndexOf('.');
-		if (dotIdx != -1) {
-			dotIdx++;
-			String ver = retVal.substring(dotIdx);
-			int intVer = Integer.parseInt(ver);
-			intVer += 1;
-			retVal = retVal.substring(0, dotIdx);
-			retVal = retVal + intVer;
-		}
-		else {
-			//just a major version...
-			try {
-				int intVer = Integer.parseInt(retVal);
-				intVer += 1;
-				retVal = Integer.toString(intVer);
-			}
-			catch (NumberFormatException nfEx) {
-				// not a major version - just a qualifier!
-				Logger logger = Logger.getLogger(this.getClass().getName());
-				logger.log(Level.WARNING, "{0} is not a number, so I can't work out the next version.",
-				           new Object[] {retVal});
-				retVal = "NaN";
-			}
-		}
-		return retVal + "-SNAPSHOT"; //$NON-NLS-1$
+	    try {
+	        DefaultVersionInfo dvi = new DefaultVersionInfo(version);
+	        return dvi.getNextVersion().getSnapshotVersionString();
+	    }
+	    catch (VersionParseException vpEx) {
+            Logger logger = Logger.getLogger(this.getClass().getName());
+            logger.log(Level.WARNING, "Failed to compute next version.", vpEx);
+            return "NaN-SNAPSHOT";
+	    }
 	}
 	
 	public boolean isNexusSupportEnabled() {
@@ -170,9 +152,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		// JSON collapses everything in the dynamic specifyVersions section so we need to fall back to
 		// good old http...
 		Map<?,?> httpParams = req.getParameterMap();
-
-		Map<String,String> versions = null;
-		
+	
 		final boolean appendHudsonBuildNumber = httpParams.containsKey("appendHudsonBuildNumber"); //$NON-NLS-1$
 		final boolean closeNexusStage = httpParams.containsKey("closeNexusStage"); //$NON-NLS-1$
 		final String repoDescription = closeNexusStage ? getString("repoDescription", httpParams) : ""; //$NON-NLS-1$
@@ -181,47 +161,22 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		final String scmPassword = specifyScmCredentials ? getString("scmPassword", httpParams) : null; //$NON-NLS-1$
 		final boolean specifyScmCommentPrefix = httpParams.containsKey("specifyScmCommentPrefix"); //$NON-NLS-1$
 		final String scmCommentPrefix = specifyScmCommentPrefix ? getString("scmCommentPrefix", httpParams) : null; //$NON-NLS-1$
+        
 		final boolean appendHusonUserName = specifyScmCommentPrefix && httpParams.containsKey("appendHudsonUserName"); //$NON-NLS-1$
 		
-		final String versioningMode = getString("versioningMode", httpParams);
+		final String releaseVersion = getString("releaseVersion", httpParams); //$NON-NLS-1$
+		final String developmentVersion = getString("developmentVersion", httpParams); //$NON-NLS-1$
 		
-		if (DescriptorImpl.VERSIONING_SPECIFY_VERSIONS.equals(versioningMode)) {
-			versions = new HashMap<String,String>();
-			for (Object key : httpParams.keySet()) {
-				String keyStr = (String)key;
-				if (keyStr.startsWith("-Dproject.")) {
-					versions.put(keyStr, getString(keyStr, httpParams));
-				}
-				// check dev is a snapshot
-				if (keyStr.startsWith("-Dproject.dev.")) {
-		            // TODO make this nicer by showing a html error page.
-		            enforceDeveloperVersion(getString(keyStr, httpParams));
-				}
-			}
-		} 
-		else if (DescriptorImpl.VERSIONING_SPECIFY_VERSION.equals(versioningMode)) {
-			versions = new HashMap<String, String>();
-
-			final String releaseVersion = getString("releaseVersion", httpParams); //$NON-NLS-1$
-			final String developmentVersion = getString("developmentVersion", httpParams); //$NON-NLS-1$
-			
-			// XXX this probably breaks something so don't switch this on in this release
-			//versions.put("-DdevelopmentVersion", developmentVersion);
-			//versions.put("-DreleaseVersion", releaseVersion);
-            
-            for(MavenModule mavenModule : getModules()) {
-                final String name = mavenModule.getModuleName().toString();
-                versions.put(String.format("-Dproject.dev.%s", name), developmentVersion); //$NON-NLS-1$               
-                versions.put(String.format("-Dproject.rel.%s", name), releaseVersion); //$NON-NLS-1$
-            }
-            // TODO make this nicer by showing a html error page.
-            enforceDeveloperVersion(developmentVersion);
-		}
+		// TODO make this nicer by showing a html error page.
+		// this will throw an exception so control will terminate if the dev version is not a "SNAPSHOT".
+		enforceDeveloperVersion(developmentVersion);
+		
 		// schedule release build
 		synchronized (project) {			
 			if (project.scheduleBuild(0, new ReleaseCause())) {
 				m2Wrapper.enableRelease();
-				m2Wrapper.setVersions(versions);
+				m2Wrapper.setReleaseVersion(releaseVersion);
+				m2Wrapper.setDevelopmentVersion(developmentVersion);
 				m2Wrapper.setAppendHudsonBuildNumber(appendHudsonBuildNumber);
 				m2Wrapper.setCloseNexusStage(closeNexusStage);
 				m2Wrapper.setRepoDescription(repoDescription);
