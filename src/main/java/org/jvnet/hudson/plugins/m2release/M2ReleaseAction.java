@@ -109,15 +109,15 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		return project.getRootModule();
 	}
 	
-	public String computeReleaseVersion(String version) {
+	public String computeReleaseVersion() {
         try {
-            DefaultVersionInfo dvi = new DefaultVersionInfo(version);
+            DefaultVersionInfo dvi = new DefaultVersionInfo(getRootModule().getVersion());
             return dvi.getReleaseVersionString();
         }
         catch (VersionParseException vpEx) {
             Logger logger = Logger.getLogger(this.getClass().getName());
             logger.log(Level.WARNING, "Failed to compute next version.", vpEx);
-            return version.replace("-SNAPSHOT", "");
+            return getRootModule().getVersion().replace("-SNAPSHOT", "");
         }
 	}
 	
@@ -125,13 +125,22 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		StringBuilder sb = new StringBuilder();
 		sb.append(project.getRootModule().getName());
 		sb.append(':');
-		sb.append(computeReleaseVersion(project.getRootModule().getVersion()));
+		sb.append(computeReleaseVersion());
 		return sb.toString();
 	}
 
-	public String computeNextVersion(String version) {
+	public String computeScmTag() {
+	    // maven default is artifact-version
+	    StringBuilder sb = new StringBuilder();
+	    sb.append(getRootModule().getModuleName().artifactId);
+	    sb.append('-');
+	    sb.append(computeReleaseVersion());
+	    return sb.toString();
+	}
+	
+	public String computeNextVersion() {
 	    try {
-	        DefaultVersionInfo dvi = new DefaultVersionInfo(version);
+	        DefaultVersionInfo dvi = new DefaultVersionInfo(getRootModule().getVersion());
 	        return dvi.getNextVersion().getSnapshotVersionString();
 	    }
 	    catch (VersionParseException vpEx) {
@@ -161,6 +170,8 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		final String scmPassword = specifyScmCredentials ? getString("scmPassword", httpParams) : null; //$NON-NLS-1$
 		final boolean specifyScmCommentPrefix = httpParams.containsKey("specifyScmCommentPrefix"); //$NON-NLS-1$
 		final String scmCommentPrefix = specifyScmCommentPrefix ? getString("scmCommentPrefix", httpParams) : null; //$NON-NLS-1$
+		final boolean specifyScmTag = httpParams.containsKey("specifyScmTag"); //$NON-NLS-1$
+        final String scmTag = specifyScmTag ? getString("scmTag", httpParams) : null; //$NON-NLS-1$
         
 		final boolean appendHusonUserName = specifyScmCommentPrefix && httpParams.containsKey("appendHudsonUserName"); //$NON-NLS-1$
 		
@@ -182,6 +193,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 				m2Wrapper.setRepoDescription(repoDescription);
 				m2Wrapper.setScmUsername(scmUsername);
 				m2Wrapper.setScmPassword(scmPassword);
+				m2Wrapper.setScmTag(scmTag);
 				m2Wrapper.setScmCommentPrefix(scmCommentPrefix);
 				m2Wrapper.setAppendHusonUserName(appendHusonUserName);
 				m2Wrapper.setHudsonUserName(Hudson.getAuthentication().getName());

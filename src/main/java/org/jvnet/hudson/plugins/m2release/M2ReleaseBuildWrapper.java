@@ -86,6 +86,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	private transient String              scmUsername;
 	private transient String              scmPassword;
 	private transient String              scmCommentPrefix;
+	private transient String              scmTag;
 	
 	private transient boolean             appendHusonUserName;
 	private transient String              hudsonUserName;
@@ -144,6 +145,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					    buildGoals.append(String.format("(%s)", hudsonUserName));
 					}
 					buildGoals.append("\" ");
+				}
+				
+				if (scmTag != null) {
+				    buildGoals.append("-Dtag=");
+				    buildGoals.append(scmTag);
 				}
 				
 				buildGoals.append(releaseGoals);
@@ -238,6 +244,13 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		this.scmCommentPrefix = scmCommentPrefix;
 	}
 	
+	/**
+     * @param scmTag the scmTag to set
+     */
+    public void setScmTag(String scmTag) {
+        this.scmTag = scmTag;
+    }
+
 
     public void setAppendHusonUserName(boolean appendHusonUserName) {
 		this.appendHusonUserName = appendHusonUserName;

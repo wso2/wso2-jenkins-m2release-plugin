@@ -9,10 +9,10 @@
 			<f:form method="post" action="submit">
 				<f:section title="Perform Maven Release">
 					<f:entry title="Release Version">
-						<f:textbox name="releaseVersion" value="${it.computeReleaseVersion(it.rootModule.version)}" />
+						<f:textbox name="releaseVersion" value="${it.computeReleaseVersion()}" />
 					</f:entry>
 					<f:entry title="Development version">
-						<f:textbox name="developmentVersion" value="${it.computeNextVersion(it.rootModule.version)}" />
+						<f:textbox name="developmentVersion" value="${it.computeNextVersion()}" />
 					</f:entry>
 					<f:entry title="Append Hudson Build Number">
 						<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
@@ -33,6 +33,12 @@
 						</f:entry>
 						<f:entry title="Append Hudson Username" help="/plugin/m2release/help-actionRelease-appendHudsonUsername.html">
 							<f:checkbox name="appendHudsonUserName" checked="${it.selectAppendHudsonUsername}"/>
+						</f:entry>
+					</f:optionalBlock>
+
+					<f:optionalBlock name="specifyScmTag" title="Specify custom SCM tag" checked="${it.selectCustomScmTag}" help="/plugin/m2release/help-actionRelease-specifyCustomScmTag.html">
+						<f:entry title="SCM tag">
+							<f:textbox name="scmTag" value="${it.computeScmTag()" />
 						</f:entry>
 					</f:optionalBlock>
 
