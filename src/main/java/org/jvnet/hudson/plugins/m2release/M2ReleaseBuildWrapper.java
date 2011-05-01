@@ -34,15 +34,18 @@ import hudson.maven.MavenModuleSetBuild;
 import hudson.model.Action;
 import hudson.model.BuildListener;
 import hudson.model.Item;
+import hudson.model.Result;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Descriptor;
 import hudson.model.Hudson;
+import hudson.model.Run;
 import hudson.security.Permission;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
+import hudson.util.RunList;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -179,6 +182,24 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					localcloseStage = closeNexusStage;
 				}
 
+				if (bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
+				    // keep this build.
+				    lstnr.getLogger().println("[M2Release] marking build to keep unti the next release build");
+                    bld.keepLog();
+
+				    for (Run run: (RunList<? extends Run>) (bld.getProject().getBuilds())) {
+				        M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
+			            if (a!=null && run.getResult()== Result.SUCCESS) {
+			                if (bld.getNumber() != run.getNumber()) {
+			                    lstnr.getLogger().println("[M2Release] removing keep build from build " + run.getNumber());
+			                    run.keepLog(false);
+			                    break;
+			                }
+			            }
+			        }
+				    
+				}
+				
 				if (localcloseStage) {
 					StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor().getNexusUser(), getDescriptor().getNexusPassword()); 
 					try {
@@ -200,7 +221,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						log.error("[M2Release] Could not close repository", ex);
 						retVal = false;
 					}
-				}
+				}				
 				return retVal;
 			}
 		};
