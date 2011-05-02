@@ -151,8 +151,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				}
 				
 				if (scmTag != null) {
-				    buildGoals.append("-Dtag=");
-				    buildGoals.append(scmTag);
+				    buildGoals.append("-Dtag=").append(scmTag).append(' ');
 				}
 				
 				buildGoals.append(releaseGoals);
