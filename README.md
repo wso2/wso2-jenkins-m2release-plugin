@@ -5,7 +5,7 @@ Licensed under [MIT Licence].
  
 About
 -----
-Allows you to perfrom maven release builds from within Hudson
+Allows you to perfrom maven release builds from within Jenkins.
 
 Wiki and Info
 -------------
