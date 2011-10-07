@@ -94,6 +94,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	private transient boolean             appendHusonUserName;
 	private transient String              hudsonUserName;
 
+	/** For backwards compatibility with older configurations. */
+	public transient boolean              defaultVersioningMode;
+
 	public String                         releaseGoals                 = DescriptorImpl.DEFAULT_RELEASE_GOALS;
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
