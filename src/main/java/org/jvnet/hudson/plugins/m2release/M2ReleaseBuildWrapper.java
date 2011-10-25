@@ -192,7 +192,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 				if (bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
 				    // keep this build.
-				    lstnr.getLogger().println("[M2Release] marking build to keep unti the next release build");
+				    lstnr.getLogger().println("[M2Release] marking build to keep until the next release build");
                     bld.keepLog();
 
 				    for (Run run: (RunList<? extends Run>) (bld.getProject().getBuilds())) {
