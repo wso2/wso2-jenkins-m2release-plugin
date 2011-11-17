@@ -203,17 +203,19 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		List<ParameterValue> values = new ArrayList<ParameterValue>();
         JSONObject formData = req.getSubmittedForm();
         JSONArray a = JSONArray.fromObject(formData.get("parameter"));
-
         for (Object o : a) {
             JSONObject jo = (JSONObject) o;
-            String name = jo.getString("name");
-
-            ParameterDefinition d = getParameterDefinition(name);
-            if(d==null) {
-                throw new IllegalArgumentException("No such parameter definition: " + name);
+            if(jo != null && !jo.isNullObject()){
+	            String name = jo.optString("name");
+	            if(name != null){
+		            ParameterDefinition d = getParameterDefinition(name);
+		            if(d==null) {
+		                throw new IllegalArgumentException("No such parameter definition: " + name);
+		            }
+		            ParameterValue parameterValue = d.createValue(req, jo);
+		            values.add(parameterValue);
+	            }
             }
-            ParameterValue parameterValue = d.createValue(req, jo);
-            values.add(parameterValue);
         }
         
 		// schedule release build
