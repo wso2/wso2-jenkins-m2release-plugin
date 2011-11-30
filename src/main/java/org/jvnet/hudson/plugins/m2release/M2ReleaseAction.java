@@ -26,9 +26,14 @@ package org.jvnet.hudson.plugins.m2release;
 import hudson.maven.MavenModule;
 import hudson.maven.MavenModuleSet;
 import hudson.model.Hudson;
+import hudson.model.ParameterDefinition;
+import hudson.model.ParameterValue;
+import hudson.model.ParametersAction;
+import hudson.model.ParametersDefinitionProperty;
 import hudson.model.PermalinkProjectAction;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -38,6 +43,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.servlet.ServletException;
+
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 
 import org.apache.maven.shared.release.versions.DefaultVersionInfo;
 import org.apache.maven.shared.release.versions.VersionParseException;
@@ -61,6 +69,15 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		this.project = project;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
+	}
+	
+	public List<ParameterDefinition> getParameterDefinitions() {
+		ParametersDefinitionProperty pdp = project.getProperty(ParametersDefinitionProperty.class);
+		List<ParameterDefinition> pds = Collections.emptyList();
+		if(pdp != null){
+			pds = pdp.getParameterDefinitions();
+		}
+		return pds;
 	}
 
     public List<Permalink> getPermalinks() {
@@ -182,9 +199,28 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		// this will throw an exception so control will terminate if the dev version is not a "SNAPSHOT".
 		enforceDeveloperVersion(developmentVersion);
 		
+		// get the normal job parameters (adapted from hudson.model.ParametersDefinitionProperty._doBuild(StaplerRequest, StaplerResponse))
+		List<ParameterValue> values = new ArrayList<ParameterValue>();
+        JSONObject formData = req.getSubmittedForm();
+        JSONArray a = JSONArray.fromObject(formData.get("parameter"));
+        for (Object o : a) {
+            JSONObject jo = (JSONObject) o;
+            if(jo != null && !jo.isNullObject()){
+	            String name = jo.optString("name");
+	            if(name != null){
+		            ParameterDefinition d = getParameterDefinition(name);
+		            if(d==null) {
+		                throw new IllegalArgumentException("No such parameter definition: " + name);
+		            }
+		            ParameterValue parameterValue = d.createValue(req, jo);
+		            values.add(parameterValue);
+	            }
+            }
+        }
+        
 		// schedule release build
 		synchronized (project) {			
-			if (project.scheduleBuild(0, new ReleaseCause())) {
+			if (project.scheduleBuild(0, new ReleaseCause(), new ParametersAction(values))) {
 				m2Wrapper.enableRelease();
 				m2Wrapper.setReleaseVersion(releaseVersion);
 				m2Wrapper.setDevelopmentVersion(developmentVersion);
@@ -208,6 +244,18 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		}
 	}
 
+	/**
+     * Gets the {@link ParameterDefinition} of the given name, if any.
+     */
+    public ParameterDefinition getParameterDefinition(String name) {
+        for (ParameterDefinition pd : getParameterDefinitions()) {
+            if (pd.getName().equals(name)) {
+                return pd;
+            }
+        } 
+        return null;
+    }
+    
 	/**
 	 * returns the value of the key as a String. if multiple values
 	 * have been submitted, the first one will be returned.

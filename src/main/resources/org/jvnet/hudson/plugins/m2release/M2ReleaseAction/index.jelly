@@ -17,7 +17,7 @@
 					<f:entry title="Append Hudson Build Number">
 						<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
 					</f:entry>
-
+					
 					<f:optionalBlock name="specifyScmCredentials" title="Specify SCM login/password" checked="false">
 						<f:entry title="Username">
 							<f:textbox name="scmUsername" value="" />
@@ -51,10 +51,21 @@
 						</f:optionalBlock>
 						</f:section>
 					</j:if>
-					<tr><td colspan="4" align="right">
-					<f:submit value="${%Schedule Maven Release Build}"/>
-					</td></tr>
 				</f:section>
+
+				<j:if test="${!empty(it.parameterDefinitions)}">
+				   <f:section title="${%Job properties}">
+			          <j:forEach var="parameterDefinition" items="${it.parameterDefinitions}">
+			            <tbody>
+			               <st:include it="${parameterDefinition}" page="${parameterDefinition.descriptor.valuePage}" />
+				        </tbody>
+				      </j:forEach>
+				   </f:section>
+				</j:if>	
+				
+				<tr><td colspan="4" align="right">
+				<f:submit value="${%Schedule Maven Release Build}"/>
+				</td></tr>
 				
 			</f:form>
 
