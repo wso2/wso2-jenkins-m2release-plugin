@@ -18,7 +18,7 @@
 						<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
 					</f:entry>
 					
-					<f:optionalBlock name="specifyScmCredentials" title="Specify SCM login/password" checked="false">
+					<f:optionalBlock name="specifyScmCredentials" title="Specify SCM login/password" checked="${it.isSelectScmCredentials()}">
 						<f:entry title="Username">
 							<f:textbox name="scmUsername" value="" />
 						</f:entry>

@@ -64,11 +64,13 @@ public class M2ReleaseAction implements PermalinkProjectAction {
     private MavenModuleSet project;
 	private boolean selectCustomScmCommentPrefix;
 	private boolean selectAppendHudsonUsername;
+	private boolean selectScmCredentials;
 	
-	public M2ReleaseAction(MavenModuleSet project, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
+	public M2ReleaseAction(MavenModuleSet project, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials) {
 		this.project = project;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
+		this.selectScmCredentials = selectScmCredentials;
 	}
 	
 	public List<ParameterDefinition> getParameterDefinitions() {
@@ -100,6 +102,10 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 
 	public String getUrlName() {
 		return "m2release"; //$NON-NLS-1$
+	}
+	
+	public boolean isSelectScmCredentials() {
+		return selectScmCredentials;
 	}
 
 	public boolean isSelectCustomScmCommentPrefix() {

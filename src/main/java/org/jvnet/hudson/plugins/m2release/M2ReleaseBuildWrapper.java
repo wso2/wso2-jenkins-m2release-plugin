@@ -109,13 +109,15 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	private String                        releaseGoals                 = DescriptorImpl.DEFAULT_RELEASE_GOALS;
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
+	public boolean                        selectScmCredentials         = DescriptorImpl.DEFAULT_SELECT_SCM_CREDENTIALS;
 	
 	@DataBoundConstructor
-	public M2ReleaseBuildWrapper(String releaseGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, String releaseEnvVar) {
+	public M2ReleaseBuildWrapper(String releaseGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, String releaseEnvVar) {
 		super();
 		this.releaseGoals = releaseGoals;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
+		this.selectScmCredentials = selectScmCredentials;
 		this.releaseEnvVar = releaseEnvVar;
 	}
 
@@ -325,7 +327,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	@Override
 	public Action getProjectAction(@SuppressWarnings("rawtypes") AbstractProject job) {
-		return new M2ReleaseAction((MavenModuleSet) job, selectCustomScmCommentPrefix, selectAppendHudsonUsername);
+		return new M2ReleaseAction((MavenModuleSet) job, selectCustomScmCommentPrefix, selectAppendHudsonUsername, selectScmCredentials);
 	}
 
 	public static boolean hasReleasePermission(@SuppressWarnings("rawtypes") AbstractProject job) {
@@ -430,6 +432,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 		public static final boolean    DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX = false;
 		public static final boolean    DEFAULT_SELECT_APPEND_HUDSON_USERNAME    = false;
+		public static final boolean    DEFAULT_SELECT_SCM_CREDENTIALS           = false;
 		
 		private boolean nexusSupport  = false;
 		private String  nexusURL      = null;

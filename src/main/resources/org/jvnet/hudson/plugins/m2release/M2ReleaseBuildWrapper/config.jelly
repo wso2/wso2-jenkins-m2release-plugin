@@ -27,6 +27,10 @@
 		<f:checkbox name="selectAppendHudsonUsername" checked="${h.defaulted(instance.selectAppendHudsonUsername,descriptor.DEFAULT_SELECT_APPEND_HUDSON_USERNAME)}"/>
 	</f:entry>
 	
+	<f:entry title="Preselect 'specify SCM login/password'" help="/plugin/m2release/help-projectConfig-selectScmCredentials.html">
+		<f:checkbox name="selectScmCredentials" checked="${h.defaulted(instance.selectScmCredentials,descriptor.DEFAULT_SELECT_SCM_CREDENTIALS)}"/>
+	</f:entry>
+	
 	<f:advanced>
 		<f:entry title="Release Envrionment Variable" help="/plugin/m2release/help-projectConfig-releaseEnvVar.html">
 			<f:textbox field="releaseEnvVar" value="${h.defaulted(instance.releaseEnvVar,descriptor.DEFAULT_RELEASE_ENVVAR)}"/>
