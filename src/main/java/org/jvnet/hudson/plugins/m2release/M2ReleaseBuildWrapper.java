@@ -55,6 +55,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Map;
 
 import javax.servlet.ServletException;
 
@@ -103,17 +104,19 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	/** For backwards compatibility with older configurations. */
 	public transient boolean              defaultVersioningMode;
-
-	public String                         releaseGoals                 = DescriptorImpl.DEFAULT_RELEASE_GOALS;
+	
+	private String                        releaseEnvVar                = DescriptorImpl.DEFAULT_RELEASE_ENVVAR;
+	private String                        releaseGoals                 = DescriptorImpl.DEFAULT_RELEASE_GOALS;
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
 	
 	@DataBoundConstructor
-	public M2ReleaseBuildWrapper(String releaseGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
+	public M2ReleaseBuildWrapper(String releaseGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, String releaseEnvVar) {
 		super();
 		this.releaseGoals = releaseGoals;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
+		this.releaseEnvVar = releaseEnvVar;
 	}
 
 
@@ -127,6 +130,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				// we are not performing a release so don't need a custom tearDown.
 				return new Environment() {
 					/** intentionally blank */
+					@Override
+					public void buildEnvVars(Map<String, String> env) {
+						env.put(releaseEnvVar, "false");
+					}
 				};
 			}
 			// reset for the next build.
@@ -166,6 +173,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 		
 		return new Environment() {
+			
+			@Override
+			public void buildEnvVars(Map<String, String> env) {
+				env.put(releaseEnvVar, "true");
+			}
 
 			@Override
 			public boolean tearDown(@SuppressWarnings("rawtypes") AbstractBuild bld, BuildListener lstnr) throws IOException,
@@ -325,6 +337,13 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		job.checkPermission(DescriptorImpl.CREATE_RELEASE);
 	}
 
+	public String getReleaseEnvVar() {
+		return releaseEnvVar;
+	}
+	
+	public String getReleaseGoals() {
+		return releaseGoals;
+	}
 	
 	/**
 	 * Hudson defines a method {@link Builder#getDescriptor()}, which returns the corresponding
@@ -407,6 +426,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 
 		public static final String     DEFAULT_RELEASE_GOALS = "-Dresume=false release:prepare release:perform"; //$NON-NLS-1$
+		public static final String     DEFAULT_RELEASE_ENVVAR = "IS_M2RELEASEBUILD"; //$NON-NLS-1$
 
 		public static final boolean    DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX = false;
 		public static final boolean    DEFAULT_SELECT_APPEND_HUDSON_USERNAME    = false;

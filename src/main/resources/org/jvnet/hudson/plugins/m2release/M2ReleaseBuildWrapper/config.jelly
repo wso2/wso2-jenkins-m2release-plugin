@@ -26,4 +26,10 @@
 	<f:entry title="Preselect append Hudson username" help="/plugin/m2release/help-projectConfig-selectAppendHudsonUsername.html">
 		<f:checkbox name="selectAppendHudsonUsername" checked="${h.defaulted(instance.selectAppendHudsonUsername,descriptor.DEFAULT_SELECT_APPEND_HUDSON_USERNAME)}"/>
 	</f:entry>
+	
+	<f:advanced>
+		<f:entry title="Release Envrionment Variable" help="/plugin/m2release/help-projectConfig-releaseEnvVar.html">
+			<f:textbox field="releaseEnvVar" value="${h.defaulted(instance.releaseEnvVar,descriptor.DEFAULT_RELEASE_ENVVAR)}"/>
+		</f:entry>
+	</f:advanced>
 </j:jelly>
