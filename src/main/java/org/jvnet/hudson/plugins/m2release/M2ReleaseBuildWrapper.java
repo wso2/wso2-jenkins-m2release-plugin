@@ -76,6 +76,7 @@ import org.slf4j.LoggerFactory;
  * ability to auto close a Nexus Pro Staging Repo
  * 
  * @author James Nord
+ * @author Dominik Bartholdi
  * @version 0.3
  * @since 0.1
  */
@@ -120,8 +121,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public Environment setUp(@SuppressWarnings("rawtypes") AbstractBuild build, Launcher launcher, final BuildListener listener)
 	                                                                                              throws IOException,
 	                                                                                              InterruptedException {
-		final String originalGoals;
-		final MavenModuleSet mmSet;
 		
 		synchronized (getModuleSet(build)) {
 			if (!doRelease) {
@@ -133,45 +132,36 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			// reset for the next build.
 			doRelease = false;
 			
-			mmSet = getModuleSet(build);
-			if (mmSet != null) {
-				originalGoals = mmSet.getGoals();
-				
-				StringBuilder buildGoals = new StringBuilder();
+			StringBuilder buildGoals = new StringBuilder();
 
-				buildGoals.append("-DdevelopmentVersion=").append(developmentVersion).append(' ');
-				buildGoals.append("-DreleaseVersion=").append(releaseVersion).append(' ');
-				
-				if (scmUsername != null) {
-					buildGoals.append("-Dusername=").append(scmUsername).append(' ');
-				}
-				
-				if (scmPassword != null) {
-					buildGoals.append("-Dpassword=").append(scmPassword).append(' ');					
-				}
-				
-				if (scmCommentPrefix != null) {
-					buildGoals.append("\"-DscmCommentPrefix=");
-					buildGoals.append(scmCommentPrefix);
-					if(appendHusonUserName) {
-					    buildGoals.append(String.format("(%s)", hudsonUserName));
-					}
-					buildGoals.append("\" ");
-				}
-				
-				if (scmTag != null) {
-				    buildGoals.append("-Dtag=").append(scmTag).append(' ');
-				}
-				
-				buildGoals.append(releaseGoals);
-				
-				mmSet.setGoals(buildGoals.toString());
-			}
-			else {
-				// can this be so?
-				originalGoals = null;
+			buildGoals.append("-DdevelopmentVersion=").append(developmentVersion).append(' ');
+			buildGoals.append("-DreleaseVersion=").append(releaseVersion).append(' ');
+			
+			if (scmUsername != null) {
+				buildGoals.append("-Dusername=").append(scmUsername).append(' ');
 			}
 			
+			if (scmPassword != null) {
+				buildGoals.append("-Dpassword=").append(scmPassword).append(' ');					
+			}
+			
+			if (scmCommentPrefix != null) {
+				buildGoals.append("\"-DscmCommentPrefix=");
+				buildGoals.append(scmCommentPrefix);
+				if(appendHusonUserName) {
+				    buildGoals.append(String.format("(%s)", hudsonUserName));
+				}
+				buildGoals.append("\" ");
+			}
+			
+			if (scmTag != null) {
+			    buildGoals.append("-Dtag=").append(scmTag).append(' ');
+			}
+			
+			buildGoals.append(releaseGoals);
+			
+			
+			build.addAction(new M2ReleaseArgumentInterceptorAction(buildGoals.toString()));
 			build.addAction(new M2ReleaseBadgeAction("Release - " + releaseVersion));
 		}
 		
@@ -181,11 +171,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			public boolean tearDown(@SuppressWarnings("rawtypes") AbstractBuild bld, BuildListener lstnr) throws IOException,
 			                                                               InterruptedException {
 				boolean retVal = true;
-				// TODO only re-set the build goals if they are still releaseGoals to avoid mid-air collisions.
 				final MavenModuleSet mmSet = getModuleSet(bld);
 				final boolean localcloseStage;
 				synchronized (mmSet) {
-					mmSet.setGoals(originalGoals);
 					// get a local variable so we don't have to synchronize on mmSet any more than we have to.
 					localcloseStage = closeNexusStage;
 				}
