@@ -190,12 +190,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					// inform others that we are doing a release build
 					env.put(releaseEnvVar, "true");
 				}
-				if(StringUtils.isNotBlank(scmUserEnvVar)){
-					env.put(scmUserEnvVar, scmUsername);
-				}
-				if(StringUtils.isNotBlank(scmPasswordEnvVar)){
-					env.put(scmPasswordEnvVar, scmPassword);
-				}
 			}
 
 			@Override

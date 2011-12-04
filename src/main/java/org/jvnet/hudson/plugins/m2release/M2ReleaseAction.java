@@ -30,7 +30,9 @@ import hudson.model.ParameterDefinition;
 import hudson.model.ParameterValue;
 import hudson.model.ParametersAction;
 import hudson.model.ParametersDefinitionProperty;
+import hudson.model.PasswordParameterValue;
 import hudson.model.PermalinkProjectAction;
+import hudson.model.StringParameterValue;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -47,6 +49,7 @@ import javax.servlet.ServletException;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.maven.shared.release.versions.DefaultVersionInfo;
 import org.apache.maven.shared.release.versions.VersionParseException;
 import org.kohsuke.stapler.StaplerRequest;
@@ -223,6 +226,14 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		            values.add(parameterValue);
 	            }
             }
+        }
+        
+        // if configured, expose the SCM credentails as additional parameters
+        if(StringUtils.isNotBlank(m2Wrapper.getScmPasswordEnvVar())){
+        	values.add(new PasswordParameterValue(m2Wrapper.getScmPasswordEnvVar(), scmPassword));
+        }
+        if(StringUtils.isNotBlank(m2Wrapper.getScmUserEnvVar())){
+        	values.add(new StringParameterValue(m2Wrapper.getScmUserEnvVar(), scmUsername));
         }
         
 		// schedule release build
