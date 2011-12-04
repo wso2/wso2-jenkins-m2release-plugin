@@ -60,12 +60,14 @@ import org.kohsuke.stapler.StaplerResponse;
  * process.
  * 
  * @author James Nord
+ * @author Dominik Bartholdi
  * @version 0.3
  */
 public class M2ReleaseAction implements PermalinkProjectAction {
 
     private MavenModuleSet project;
 	private boolean selectCustomScmCommentPrefix;
+	private boolean selectCustomScmTag = false;
 	private boolean selectAppendHudsonUsername;
 	private boolean selectScmCredentials;
 	
@@ -74,6 +76,10 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 		this.selectScmCredentials = selectScmCredentials;
+		if(getRootModule() == null){
+    		// if the root module is not available, the user should be informed about the stuff we are not able to compute
+    		this.selectCustomScmTag = true;
+		}
 	}
 	
 	public List<ParameterDefinition> getParameterDefinitions() {
@@ -127,6 +133,10 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 	}
 
+	public boolean isSelectCustomScmTag() {
+		return selectCustomScmTag;
+	}
+	
 	public Collection<MavenModule> getModules() {
 		return project.getModules();
 	}
@@ -136,44 +146,54 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	}
 	
 	public String computeReleaseVersion() {
-        try {
-            DefaultVersionInfo dvi = new DefaultVersionInfo(getRootModule().getVersion());
-            return dvi.getReleaseVersionString();
+		String version = "NaN";
+        final MavenModule rootModule = getRootModule();
+        if(rootModule != null && StringUtils.isNotBlank(rootModule.getVersion())) {
+			try {
+	            DefaultVersionInfo dvi = new DefaultVersionInfo(rootModule.getVersion());
+	            version = dvi.getReleaseVersionString();
+	        }
+	        catch (VersionParseException vpEx) {
+	            Logger logger = Logger.getLogger(this.getClass().getName());
+	            logger.log(Level.WARNING, "Failed to compute next version.", vpEx);
+	            version = rootModule.getVersion().replace("-SNAPSHOT", "");
+	        }
         }
-        catch (VersionParseException vpEx) {
-            Logger logger = Logger.getLogger(this.getClass().getName());
-            logger.log(Level.WARNING, "Failed to compute next version.", vpEx);
-            return getRootModule().getVersion().replace("-SNAPSHOT", "");
-        }
+        return version;
 	}
 	
 	public String computeRepoDescription() {
 		StringBuilder sb = new StringBuilder();
-		sb.append(project.getRootModule().getName());
-		sb.append(':');
-		sb.append(computeReleaseVersion());
+			sb.append(project.getRootModule().getName());
+			sb.append(':');
+			sb.append(computeReleaseVersion());
 		return sb.toString();
 	}
 
 	public String computeScmTag() {
 	    // maven default is artifact-version
-	    StringBuilder sb = new StringBuilder();
-	    sb.append(getRootModule().getModuleName().artifactId);
-	    sb.append('-');
-	    sb.append(computeReleaseVersion());
-	    return sb.toString();
+		String artifactId = getRootModule() == null ? "M2RELEASE-TAG" : getRootModule().getModuleName().artifactId;
+    	StringBuilder sb = new StringBuilder();
+    	sb.append(artifactId);
+    	sb.append('-');
+    	sb.append(computeReleaseVersion());
+    	return sb.toString();
 	}
 	
 	public String computeNextVersion() {
-	    try {
-	        DefaultVersionInfo dvi = new DefaultVersionInfo(getRootModule().getVersion());
-	        return dvi.getNextVersion().getSnapshotVersionString();
+		String version = "NaN-SNAPSHOT";
+        final MavenModule rootModule = getRootModule();
+        if(rootModule != null && StringUtils.isNotBlank(rootModule.getVersion())) {
+		    try {
+		        DefaultVersionInfo dvi = new DefaultVersionInfo(rootModule.getVersion());
+		        version = dvi.getNextVersion().getSnapshotVersionString();
+		    }
+		    catch (Exception vpEx) {
+	            Logger logger = Logger.getLogger(this.getClass().getName());
+	            logger.log(Level.WARNING, "Failed to compute next version.", vpEx);
+		    }
 	    }
-	    catch (VersionParseException vpEx) {
-            Logger logger = Logger.getLogger(this.getClass().getName());
-            logger.log(Level.WARNING, "Failed to compute next version.", vpEx);
-            return "NaN-SNAPSHOT";
-	    }
+	    return version;
 	}
 	
 	public boolean isNexusSupportEnabled() {

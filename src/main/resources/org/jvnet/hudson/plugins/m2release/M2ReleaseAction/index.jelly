@@ -39,7 +39,7 @@
 						</f:entry>
 					</f:optionalBlock>
 
-					<f:optionalBlock name="specifyScmTag" title="Specify custom SCM tag" checked="false" help="/plugin/m2release/help-actionRelease-specifyCustomScmTag.html">
+					<f:optionalBlock name="specifyScmTag" title="Specify custom SCM tag" checked="${it.selectCustomScmTag}" help="/plugin/m2release/help-actionRelease-specifyCustomScmTag.html">
 						<f:entry title="SCM tag">
 							<f:textbox name="scmTag" value="${it.computeScmTag()}" />
 						</f:entry>
