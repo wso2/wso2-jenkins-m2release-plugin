@@ -89,8 +89,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	
 	private transient boolean             doRelease           = false;
 	private transient boolean             closeNexusStage     = true;
+	private transient boolean             isDryRun            = false;
 
-    private transient String             releaseVersion;
+    private transient String              releaseVersion;
 	private transient String              developmentVersion;
 	
 	private transient boolean             appendHudsonBuildNumber;
@@ -177,9 +178,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			
 			buildGoals.append(releaseGoals);
 			
-			
-			build.addAction(new M2ReleaseArgumentInterceptorAction(buildGoals.toString()));
-			build.addAction(new M2ReleaseBadgeAction("Release - " + releaseVersion));
+			build.addAction(new M2ReleaseArgumentInterceptorAction(buildGoals.toString(), isDryRun));
+			build.addAction(new M2ReleaseBadgeAction(releaseVersion, isDryRun));
 		}
 		
 		return new Environment() {
@@ -208,8 +208,12 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					// get a local variable so we don't have to synchronize on mmSet any more than we have to.
 					localcloseStage = closeNexusStage;
 				}
+				
+				if(isDryRun){
+					lstnr.getLogger().println("[M2Release] its only a dryRun, therefore build gets not marked to be keept");
+				}
 
-				if (bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
+				if (bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !isDryRun) {
 				    // keep this build.
 				    lstnr.getLogger().println("[M2Release] marking build to keep until the next release build");
                     bld.keepLog();
@@ -224,10 +228,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			                }
 			            }
 			        }
-				    
 				}
 				
-				if (localcloseStage) {
+				if (localcloseStage && !isDryRun) {
 					StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor().getNexusUser(), getDescriptor().getNexusPassword()); 
 					try {
 						MavenModule rootModule = mmSet.getRootModule();
@@ -258,6 +261,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	void enableRelease() {
 		doRelease = true;
 	}
+	
+	void markAsDryRun(boolean isDryRun){
+		this.isDryRun = isDryRun;
+	}
 
     public void setReleaseVersion(String releaseVersion) {
         this.releaseVersion = releaseVersion;
@@ -287,7 +294,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public void setScmPassword(String scmPassword) {
 		this.scmPassword = scmPassword;
 	}
-
+	
 	public void setScmCommentPrefix(String scmCommentPrefix) {
 		this.scmCommentPrefix = scmCommentPrefix;
 	}

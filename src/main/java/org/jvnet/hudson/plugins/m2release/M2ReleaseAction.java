@@ -197,6 +197,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
         final String scmTag = specifyScmTag ? getString("scmTag", httpParams) : null; //$NON-NLS-1$
         
 		final boolean appendHusonUserName = specifyScmCommentPrefix && httpParams.containsKey("appendHudsonUserName"); //$NON-NLS-1$
+		final boolean isDryRun = httpParams.containsKey("isDryRun"); //$NON-NLS-1$
 		
 		final String releaseVersion = getString("releaseVersion", httpParams); //$NON-NLS-1$
 		final String developmentVersion = getString("developmentVersion", httpParams); //$NON-NLS-1$
@@ -228,6 +229,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		synchronized (project) {			
 			if (project.scheduleBuild(0, new ReleaseCause(), new ParametersAction(values))) {
 				m2Wrapper.enableRelease();
+				m2Wrapper.markAsDryRun(isDryRun);
 				m2Wrapper.setReleaseVersion(releaseVersion);
 				m2Wrapper.setDevelopmentVersion(developmentVersion);
 				m2Wrapper.setAppendHudsonBuildNumber(appendHudsonBuildNumber);
