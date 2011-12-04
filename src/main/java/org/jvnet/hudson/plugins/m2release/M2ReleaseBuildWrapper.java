@@ -61,6 +61,7 @@ import javax.servlet.ServletException;
 
 import net.sf.json.JSONObject;
 
+import org.apache.commons.lang.StringUtils;
 import org.jvnet.hudson.plugins.m2release.nexus.Stage;
 import org.jvnet.hudson.plugins.m2release.nexus.StageClient;
 import org.jvnet.hudson.plugins.m2release.nexus.StageException;
@@ -105,6 +106,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	/** For backwards compatibility with older configurations. */
 	public transient boolean              defaultVersioningMode;
 	
+	private String                        scmUserEnvVar                = "";
+	private String                        scmPasswordEnvVar            = "";
 	private String                        releaseEnvVar                = DescriptorImpl.DEFAULT_RELEASE_ENVVAR;
 	private String                        releaseGoals                 = DescriptorImpl.DEFAULT_RELEASE_GOALS;
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
@@ -112,13 +115,15 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public boolean                        selectScmCredentials         = DescriptorImpl.DEFAULT_SELECT_SCM_CREDENTIALS;
 	
 	@DataBoundConstructor
-	public M2ReleaseBuildWrapper(String releaseGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, String releaseEnvVar) {
+	public M2ReleaseBuildWrapper(String releaseGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, String releaseEnvVar, String scmUserEnvVar, String scmPasswordEnvVar) {
 		super();
 		this.releaseGoals = releaseGoals;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 		this.selectScmCredentials = selectScmCredentials;
 		this.releaseEnvVar = releaseEnvVar;
+		this.scmUserEnvVar = scmUserEnvVar;
+		this.scmPasswordEnvVar = scmPasswordEnvVar;
 	}
 
 
@@ -134,7 +139,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					/** intentionally blank */
 					@Override
 					public void buildEnvVars(Map<String, String> env) {
-						env.put(releaseEnvVar, "false");
+						if(StringUtils.isNotBlank(releaseEnvVar)){
+							// inform others that we are NOT doing a release build
+							env.put(releaseEnvVar, "false");
+						}
 					}
 				};
 			}
@@ -178,7 +186,16 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			
 			@Override
 			public void buildEnvVars(Map<String, String> env) {
-				env.put(releaseEnvVar, "true");
+				if(StringUtils.isNotBlank(releaseEnvVar)){
+					// inform others that we are doing a release build
+					env.put(releaseEnvVar, "true");
+				}
+				if(StringUtils.isNotBlank(scmUserEnvVar)){
+					env.put(scmUserEnvVar, scmUsername);
+				}
+				if(StringUtils.isNotBlank(scmPasswordEnvVar)){
+					env.put(scmPasswordEnvVar, scmPassword);
+				}
 			}
 
 			@Override
@@ -341,6 +358,14 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	public String getReleaseEnvVar() {
 		return releaseEnvVar;
+	}
+
+	public String getScmUserEnvVar() {
+		return scmUserEnvVar;
+	}
+	
+	public String getScmPasswordEnvVar() {
+		return scmPasswordEnvVar;
 	}
 	
 	public String getReleaseGoals() {
