@@ -204,10 +204,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				}
 				
 				if(isDryRun){
-					lstnr.getLogger().println("[M2Release] its only a dryRun, therefore build gets not marked to be keept");
+					lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");
 				}
 
-				if (bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !isDryRun) {
+				if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !isDryRun) {
 				    // keep this build.
 				    lstnr.getLogger().println("[M2Release] marking build to keep until the next release build");
                     bld.keepLog();
