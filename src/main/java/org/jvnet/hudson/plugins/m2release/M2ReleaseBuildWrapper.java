@@ -214,7 +214,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 				    for (Run run: (RunList<? extends Run>) (bld.getProject().getBuilds())) {
 				        M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
-			            if (a!=null && run.getResult()== Result.SUCCESS) {
+			            if (a!=null && run.getResult()== Result.SUCCESS && !a.isDryRun()) {
 			                if (bld.getNumber() != run.getNumber()) {
 			                    lstnr.getLogger().println("[M2Release] removing keep build from build " + run.getNumber());
 			                    run.keepLog(false);
