@@ -1,5 +1,8 @@
 <j:jelly xmlns:j="jelly:core">
-	<img width="16" height="16"
-         title="${it.tooltipText}"
-	     src="${imagesURL}/16x16/package.gif"/>
+<j:if test="${it.isDryRun()}">
+       <img width="16" height="16" title="${it.tooltipText}" src="${rootURL}/plugin/m2release/img/new-package.png"/>
+    </j:if>
+    <j:if test="${!it.isDryRun()}">
+	   <img width="16" height="16" title="${it.tooltipText}" src="${imagesURL}/16x16/package.png"/>
+	</j:if>
 </j:jelly>  

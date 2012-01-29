@@ -55,11 +55,13 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Map;
 
 import javax.servlet.ServletException;
 
 import net.sf.json.JSONObject;
 
+import org.apache.commons.lang.StringUtils;
 import org.jvnet.hudson.plugins.m2release.nexus.Stage;
 import org.jvnet.hudson.plugins.m2release.nexus.StageClient;
 import org.jvnet.hudson.plugins.m2release.nexus.StageException;
@@ -76,6 +78,7 @@ import org.slf4j.LoggerFactory;
  * ability to auto close a Nexus Pro Staging Repo
  * 
  * @author James Nord
+ * @author Dominik Bartholdi
  * @version 0.3
  * @since 0.1
  */
@@ -86,8 +89,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	
 	private transient boolean             doRelease           = false;
 	private transient boolean             closeNexusStage     = true;
+	private transient boolean             isDryRun            = false;
 
-    private transient String             releaseVersion;
+    private transient String              releaseVersion;
 	private transient String              developmentVersion;
 	
 	private transient boolean             appendHudsonBuildNumber;
@@ -102,17 +106,25 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	/** For backwards compatibility with older configurations. */
 	public transient boolean              defaultVersioningMode;
-
-	public String                         releaseGoals                 = DescriptorImpl.DEFAULT_RELEASE_GOALS;
+	
+	private String                        scmUserEnvVar                = "";
+	private String                        scmPasswordEnvVar            = "";
+	private String                        releaseEnvVar                = DescriptorImpl.DEFAULT_RELEASE_ENVVAR;
+	private String                        releaseGoals                 = DescriptorImpl.DEFAULT_RELEASE_GOALS;
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
+	public boolean                        selectScmCredentials         = DescriptorImpl.DEFAULT_SELECT_SCM_CREDENTIALS;
 	
 	@DataBoundConstructor
-	public M2ReleaseBuildWrapper(String releaseGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername) {
+	public M2ReleaseBuildWrapper(String releaseGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, String releaseEnvVar, String scmUserEnvVar, String scmPasswordEnvVar) {
 		super();
 		this.releaseGoals = releaseGoals;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
+		this.selectScmCredentials = selectScmCredentials;
+		this.releaseEnvVar = releaseEnvVar;
+		this.scmUserEnvVar = scmUserEnvVar;
+		this.scmPasswordEnvVar = scmPasswordEnvVar;
 	}
 
 
@@ -120,84 +132,89 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public Environment setUp(@SuppressWarnings("rawtypes") AbstractBuild build, Launcher launcher, final BuildListener listener)
 	                                                                                              throws IOException,
 	                                                                                              InterruptedException {
-		final String originalGoals;
-		final MavenModuleSet mmSet;
 		
 		synchronized (getModuleSet(build)) {
 			if (!doRelease) {
 				// we are not performing a release so don't need a custom tearDown.
 				return new Environment() {
 					/** intentionally blank */
+					@Override
+					public void buildEnvVars(Map<String, String> env) {
+						if(StringUtils.isNotBlank(releaseEnvVar)){
+							// inform others that we are NOT doing a release build
+							env.put(releaseEnvVar, "false");
+						}
+					}
 				};
 			}
 			// reset for the next build.
 			doRelease = false;
 			
-			mmSet = getModuleSet(build);
-			if (mmSet != null) {
-				originalGoals = mmSet.getGoals();
-				
-				StringBuilder buildGoals = new StringBuilder();
+			StringBuilder buildGoals = new StringBuilder();
 
-				buildGoals.append("-DdevelopmentVersion=").append(developmentVersion).append(' ');
-				buildGoals.append("-DreleaseVersion=").append(releaseVersion).append(' ');
-				
-				if (scmUsername != null) {
-					buildGoals.append("-Dusername=").append(scmUsername).append(' ');
-				}
-				
-				if (scmPassword != null) {
-					buildGoals.append("-Dpassword=").append(scmPassword).append(' ');					
-				}
-				
-				if (scmCommentPrefix != null) {
-					buildGoals.append("\"-DscmCommentPrefix=");
-					buildGoals.append(scmCommentPrefix);
-					if(appendHusonUserName) {
-					    buildGoals.append(String.format("(%s)", hudsonUserName));
-					}
-					buildGoals.append("\" ");
-				}
-				
-				if (scmTag != null) {
-				    buildGoals.append("-Dtag=").append(scmTag).append(' ');
-				}
-				
-				buildGoals.append(releaseGoals);
-				
-				mmSet.setGoals(buildGoals.toString());
-			}
-			else {
-				// can this be so?
-				originalGoals = null;
+			buildGoals.append("-DdevelopmentVersion=").append(developmentVersion).append(' ');
+			buildGoals.append("-DreleaseVersion=").append(releaseVersion).append(' ');
+			
+			if (scmUsername != null) {
+				buildGoals.append("-Dusername=").append(scmUsername).append(' ');
 			}
 			
-			build.addAction(new M2ReleaseBadgeAction("Release - " + releaseVersion));
+			if (scmPassword != null) {
+				buildGoals.append("-Dpassword=").append(scmPassword).append(' ');					
+			}
+			
+			if (scmCommentPrefix != null) {
+				buildGoals.append("\"-DscmCommentPrefix=");
+				buildGoals.append(scmCommentPrefix);
+				if(appendHusonUserName) {
+				    buildGoals.append(String.format("(%s)", hudsonUserName));
+				}
+				buildGoals.append("\" ");
+			}
+			
+			if (scmTag != null) {
+			    buildGoals.append("-Dtag=").append(scmTag).append(' ');
+			}
+			
+			buildGoals.append(releaseGoals);
+			
+			build.addAction(new M2ReleaseArgumentInterceptorAction(buildGoals.toString(), isDryRun));
+			build.addAction(new M2ReleaseBadgeAction(releaseVersion, isDryRun));
 		}
 		
 		return new Environment() {
+			
+			@Override
+			public void buildEnvVars(Map<String, String> env) {
+				if(StringUtils.isNotBlank(releaseEnvVar)){
+					// inform others that we are doing a release build
+					env.put(releaseEnvVar, "true");
+				}
+			}
 
 			@Override
 			public boolean tearDown(@SuppressWarnings("rawtypes") AbstractBuild bld, BuildListener lstnr) throws IOException,
 			                                                               InterruptedException {
 				boolean retVal = true;
-				// TODO only re-set the build goals if they are still releaseGoals to avoid mid-air collisions.
 				final MavenModuleSet mmSet = getModuleSet(bld);
 				final boolean localcloseStage;
 				synchronized (mmSet) {
-					mmSet.setGoals(originalGoals);
 					// get a local variable so we don't have to synchronize on mmSet any more than we have to.
 					localcloseStage = closeNexusStage;
 				}
+				
+				if(isDryRun){
+					lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");
+				}
 
-				if (bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
+				if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !isDryRun) {
 				    // keep this build.
 				    lstnr.getLogger().println("[M2Release] marking build to keep until the next release build");
                     bld.keepLog();
 
 				    for (Run run: (RunList<? extends Run>) (bld.getProject().getBuilds())) {
 				        M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
-			            if (a!=null && run.getResult()== Result.SUCCESS) {
+			            if (a!=null && run.getResult()== Result.SUCCESS && !a.isDryRun()) {
 			                if (bld.getNumber() != run.getNumber()) {
 			                    lstnr.getLogger().println("[M2Release] removing keep build from build " + run.getNumber());
 			                    run.keepLog(false);
@@ -205,10 +222,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			                }
 			            }
 			        }
-				    
 				}
 				
-				if (localcloseStage) {
+				if (localcloseStage && !isDryRun) {
 					StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor().getNexusUser(), getDescriptor().getNexusPassword()); 
 					try {
 						MavenModule rootModule = mmSet.getRootModule();
@@ -239,6 +255,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	void enableRelease() {
 		doRelease = true;
 	}
+	
+	void markAsDryRun(boolean isDryRun){
+		this.isDryRun = isDryRun;
+	}
 
     public void setReleaseVersion(String releaseVersion) {
         this.releaseVersion = releaseVersion;
@@ -268,7 +288,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public void setScmPassword(String scmPassword) {
 		this.scmPassword = scmPassword;
 	}
-
+	
 	public void setScmCommentPrefix(String scmCommentPrefix) {
 		this.scmCommentPrefix = scmCommentPrefix;
 	}
@@ -325,7 +345,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	@Override
 	public Action getProjectAction(@SuppressWarnings("rawtypes") AbstractProject job) {
-		return new M2ReleaseAction((MavenModuleSet) job, selectCustomScmCommentPrefix, selectAppendHudsonUsername);
+		return new M2ReleaseAction((MavenModuleSet) job, selectCustomScmCommentPrefix, selectAppendHudsonUsername, selectScmCredentials);
 	}
 
 	public static boolean hasReleasePermission(@SuppressWarnings("rawtypes") AbstractProject job) {
@@ -337,6 +357,21 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		job.checkPermission(DescriptorImpl.CREATE_RELEASE);
 	}
 
+	public String getReleaseEnvVar() {
+		return releaseEnvVar;
+	}
+
+	public String getScmUserEnvVar() {
+		return scmUserEnvVar;
+	}
+	
+	public String getScmPasswordEnvVar() {
+		return scmPasswordEnvVar;
+	}
+	
+	public String getReleaseGoals() {
+		return releaseGoals;
+	}
 	
 	/**
 	 * Hudson defines a method {@link Builder#getDescriptor()}, which returns the corresponding
@@ -419,9 +454,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 
 		public static final String     DEFAULT_RELEASE_GOALS = "-Dresume=false release:prepare release:perform"; //$NON-NLS-1$
+		public static final String     DEFAULT_RELEASE_ENVVAR = "IS_M2RELEASEBUILD"; //$NON-NLS-1$
 
 		public static final boolean    DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX = false;
 		public static final boolean    DEFAULT_SELECT_APPEND_HUDSON_USERNAME    = false;
+		public static final boolean    DEFAULT_SELECT_SCM_CREDENTIALS           = false;
 		
 		private boolean nexusSupport  = false;
 		private String  nexusURL      = null;

@@ -9,7 +9,7 @@
 	<parent>
 		<groupId>org.jenkins-ci.plugins</groupId>
 		<artifactId>plugin</artifactId>
-  		<version>1.400</version>
+		<version>1.442</version>
 	</parent>
 
 	<name>Jenkins Maven Release Plug-in Plug-in</name>
@@ -19,8 +19,9 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+		<maven.test.version>3.0.3</maven.test.version>
 	</properties>
-	
+
 	<developers>
 		<developer>
 			<id>teilo</id>
@@ -29,6 +30,10 @@
 		<developer>
 			<id>m68k</id>
 			<name>Christian Slama</name>
+		</developer>
+		<developer>
+			<id>imod</id>
+			<name>Dominik Bartholdi</name>
 		</developer>
 	</developers>
 
@@ -50,22 +55,49 @@
 		<dependency>
 			<groupId>org.jenkins-ci.main</groupId>
 			<artifactId>maven-plugin</artifactId>
-			<version>${project.parent.version}</version> 
+			<version>${project.parent.version}</version>
 			<!-- really should be provided but this causes a failure -->
-			<scope>compile</scope> 
+			<scope>compile</scope>
 		</dependency>
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-jdk14</artifactId>
-			<version>1.6.0</version>
-		</dependency>	
 		<dependency>
 			<groupId>org.apache.maven.release</groupId>
 			<artifactId>maven-release-manager</artifactId>
 			<version>2.1</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>maven-project</artifactId>
+					<groupId>org.apache.maven</groupId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<!-- <dependency> <groupId>org.jenkins-ci.main</groupId> <artifactId>jenkins-test-harness</artifactId> <version>1.442</version> <scope>test</scope> </dependency> -->
+		<dependency>
+			<groupId>org.apache.maven</groupId>
+			<artifactId>maven-core</artifactId>
+			<version>${maven.test.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.maven</groupId>
+			<artifactId>maven-artifact</artifactId>
+			<version>${maven.test.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.maven</groupId>
+			<artifactId>maven-model</artifactId>
+			<version>${maven.test.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.maven</groupId>
+			<artifactId>maven-settings</artifactId>
+			<version>${maven.test.version}</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
-	
+
 	<!-- Jenkins is no longer synced to central so we need to bootstrap -->
 	<repositories>
 		<repository>

@@ -40,6 +40,8 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 
 	/** The tooltip text displayed to the user with the badge. */
 	private transient String tooltipText;
+	
+	private boolean isDryRun;
 
     /**
      * Version number that was released.
@@ -52,14 +54,16 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	 * @param tooltipText
 	 *        the tool tip text that should be displayed with the badge.
 	 */
-	public M2ReleaseBadgeAction(String versionNumber) {
+	public M2ReleaseBadgeAction(String versionNumber, boolean isDryRun) {
 		this.versionNumber = versionNumber;
+		this.isDryRun = isDryRun;
 	}
 
     public Object readResolve() {
         // try to recover versionNumber from tooltipText
-        if (versionNumber==null && tooltipText.startsWith("Release - "))
+        if (versionNumber==null && tooltipText.startsWith("Release - ")) {
             versionNumber = tooltipText.substring("Release - ".length());
+        }
         return this;
     }
 
@@ -94,7 +98,7 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	 * Gets the tool tip text that should be displayed to the user.
 	 */
 	public String getTooltipText() {
-		return "Release - " + versionNumber;
+		return isDryRun ?  "Release (dryRun) - " + versionNumber : "Release - " + versionNumber;
 	}
 
     /**
@@ -106,4 +110,8 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
     public String getVersionNumber() {
         return versionNumber;
     }
+    
+    public boolean isDryRun() {
+		return isDryRun;
+	}
 }

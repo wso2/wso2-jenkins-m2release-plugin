@@ -17,8 +17,11 @@
 					<f:entry title="Append Hudson Build Number">
 						<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
 					</f:entry>
+					<f:entry title="Dry run only?">
+                        <f:checkbox name="isDryRun" checked="false"/>
+                    </f:entry>
 					
-					<f:optionalBlock name="specifyScmCredentials" title="Specify SCM login/password" checked="false">
+					<f:optionalBlock name="specifyScmCredentials" title="Specify SCM login/password" checked="${it.isSelectScmCredentials()}">
 						<f:entry title="Username">
 							<f:textbox name="scmUsername" value="" />
 						</f:entry>
@@ -36,7 +39,7 @@
 						</f:entry>
 					</f:optionalBlock>
 
-					<f:optionalBlock name="specifyScmTag" title="Specify custom SCM tag" checked="false" help="/plugin/m2release/help-actionRelease-specifyCustomScmTag.html">
+					<f:optionalBlock name="specifyScmTag" title="Specify custom SCM tag" checked="${it.selectCustomScmTag}" help="/plugin/m2release/help-actionRelease-specifyCustomScmTag.html">
 						<f:entry title="SCM tag">
 							<f:textbox name="scmTag" value="${it.computeScmTag()}" />
 						</f:entry>
