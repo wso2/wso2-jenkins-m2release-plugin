@@ -52,12 +52,23 @@
 	</licenses>
 
 	<dependencies>
+		<!-- 
+		 we need some functionality from the jenkins/maven plugin that is post fork
+		 but we need to be able to work with both.
+		 So we set both the maven job types to optional.
+		 -->
 		<dependency>
 			<groupId>org.jenkins-ci.main</groupId>
 			<artifactId>maven-plugin</artifactId>
-			<version>${project.parent.version}</version>
-			<!-- really should be provided but this causes a failure -->
 			<scope>compile</scope>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+ 			<groupId>org.hudsonci.plugins</groupId>
+			<artifactId>maven-plugin</artifactId>
+			<version>2.2.1</version>
+			<scope>runtime</scope>
+			<optional>true</optional>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.maven.release</groupId>
@@ -71,7 +82,14 @@
 			</exclusions>
 		</dependency>
 
-		<!-- <dependency> <groupId>org.jenkins-ci.main</groupId> <artifactId>jenkins-test-harness</artifactId> <version>1.442</version> <scope>test</scope> </dependency> -->
+		<!--
+		<dependency>
+			<groupId>org.jenkins-ci.main</groupId>
+			<artifactId>jenkins-test-harness</artifactId>
+			<version>${jenkins.version}</version>
+			<scope>test</scope>
+		</dependency>
+		-->
 		<dependency>
 			<groupId>org.apache.maven</groupId>
 			<artifactId>maven-core</artifactId>
