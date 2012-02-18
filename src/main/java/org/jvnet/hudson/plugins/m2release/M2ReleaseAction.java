@@ -25,9 +25,10 @@ package org.jvnet.hudson.plugins.m2release;
 
 import hudson.maven.MavenModule;
 import hudson.maven.MavenModuleSet;
+import hudson.model.ParameterValue;
+import hudson.model.BooleanParameterValue;
 import hudson.model.Hudson;
 import hudson.model.ParameterDefinition;
-import hudson.model.ParameterValue;
 import hudson.model.ParametersAction;
 import hudson.model.ParametersDefinitionProperty;
 import hudson.model.PasswordParameterValue;
@@ -258,6 +259,9 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			String scmUsernameVal = StringUtils.isEmpty(scmUsername) ? "" : scmUsername;
 			values.add(new StringParameterValue(m2Wrapper.getScmUserEnvVar(), scmUsernameVal));
 		}
+        values.add(new StringParameterValue(M2ReleaseBuildWrapper.DescriptorImpl.DEFAULT_RELEASE_VERSION_ENVVAR, releaseVersion));
+        values.add(new StringParameterValue(M2ReleaseBuildWrapper.DescriptorImpl.DEFAULT_DEV_VERSION_ENVVAR, developmentVersion));
+        values.add(new BooleanParameterValue(M2ReleaseBuildWrapper.DescriptorImpl.DEFAULT_DRYRUN_ENVVAR, isDryRun));
 
 		// schedule release build
 		synchronized (project) {
