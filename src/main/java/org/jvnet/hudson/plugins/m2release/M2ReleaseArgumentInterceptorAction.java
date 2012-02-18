@@ -37,11 +37,10 @@ import hudson.util.ArgumentListBuilder;
 public class M2ReleaseArgumentInterceptorAction implements MavenArgumentInterceptorAction {
 
 	private String goalsAndOptions;
-	private boolean isDryRun = false;
+	private transient boolean isDryRun; // keep backward compatible
 
-	public M2ReleaseArgumentInterceptorAction(String goalsAndOptions, boolean isDryRun) {
+	public M2ReleaseArgumentInterceptorAction(String goalsAndOptions) {
 		this.goalsAndOptions = goalsAndOptions;
-		this.isDryRun = isDryRun;
 	}
 
 	public String getIconFileName() {
@@ -61,9 +60,6 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
 	}
 
 	public ArgumentListBuilder intercept(ArgumentListBuilder mavenargs, MavenModuleSetBuild build) {
-		if (isDryRun) {
-			return mavenargs.addKeyValuePair("-D", "dryRun", "true", false);
-		}
 		return null;
 	}
 
