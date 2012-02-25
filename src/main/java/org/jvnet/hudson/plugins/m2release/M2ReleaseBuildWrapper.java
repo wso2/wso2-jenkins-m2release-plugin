@@ -219,9 +219,16 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId,
 								rootModule.getModuleName().artifactId, args.getReleaseVersion());
 						if (stage != null) {
-							lstnr.getLogger().println("[M2Release] Closing repository " + stage);
-							client.closeStage(stage, args.getRepoDescription());
-							lstnr.getLogger().println("[M2Release] Closed staging repository.");
+							if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
+								lstnr.getLogger().println("[M2Release] Closing repository " + stage);
+								client.closeStage(stage, args.getRepoDescription());
+								lstnr.getLogger().println("[M2Release] Closed staging repository.");
+							}
+							else {
+								lstnr.getLogger().println("[M2Release] Dropping repository " + stage);
+								client.closeStage(stage, args.getRepoDescription());
+								lstnr.getLogger().println("[M2Release] Dropped staging repository.");
+							}
 						}
 						else {
 							retVal = false;
