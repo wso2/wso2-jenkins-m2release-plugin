@@ -37,6 +37,7 @@ import hudson.util.ArgumentListBuilder;
 public class M2ReleaseArgumentInterceptorAction implements MavenArgumentInterceptorAction {
 
 	private String goalsAndOptions;
+	@Deprecated
 	private transient boolean isDryRun; // keep backward compatible
 
 	public M2ReleaseArgumentInterceptorAction(String goalsAndOptions) {

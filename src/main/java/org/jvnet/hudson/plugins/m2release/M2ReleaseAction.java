@@ -259,34 +259,37 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			String scmUsernameVal = StringUtils.isEmpty(scmUsername) ? "" : scmUsername;
 			values.add(new StringParameterValue(m2Wrapper.getScmUserEnvVar(), scmUsernameVal));
 		}
-        values.add(new StringParameterValue(M2ReleaseBuildWrapper.DescriptorImpl.DEFAULT_RELEASE_VERSION_ENVVAR, releaseVersion));
-        values.add(new StringParameterValue(M2ReleaseBuildWrapper.DescriptorImpl.DEFAULT_DEV_VERSION_ENVVAR, developmentVersion));
-        values.add(new BooleanParameterValue(M2ReleaseBuildWrapper.DescriptorImpl.DEFAULT_DRYRUN_ENVVAR, isDryRun));
+		values.add(new StringParameterValue(M2ReleaseBuildWrapper.DescriptorImpl.DEFAULT_RELEASE_VERSION_ENVVAR, releaseVersion));
+		values.add(new StringParameterValue(M2ReleaseBuildWrapper.DescriptorImpl.DEFAULT_DEV_VERSION_ENVVAR, developmentVersion));
+		values.add(new BooleanParameterValue(M2ReleaseBuildWrapper.DescriptorImpl.DEFAULT_DRYRUN_ENVVAR, isDryRun));
 
 		// schedule release build
-		synchronized (project) {
-			if (project.scheduleBuild(0, new ReleaseCause(), new ParametersAction(values))) {
-				m2Wrapper.enableRelease();
-				m2Wrapper.markAsDryRun(isDryRun);
-				m2Wrapper.setReleaseVersion(releaseVersion);
-				m2Wrapper.setDevelopmentVersion(developmentVersion);
-				m2Wrapper.setAppendHudsonBuildNumber(appendHudsonBuildNumber);
-				m2Wrapper.setCloseNexusStage(closeNexusStage);
-				m2Wrapper.setRepoDescription(repoDescription);
-				m2Wrapper.setScmUsername(scmUsername);
-				m2Wrapper.setScmPassword(scmPassword);
-				m2Wrapper.setScmTag(scmTag);
-				m2Wrapper.setScmCommentPrefix(scmCommentPrefix);
-				m2Wrapper.setAppendHusonUserName(appendHusonUserName);
-				m2Wrapper.setHudsonUserName(Hudson.getAuthentication().getName());
-				// redirect to project page
-				resp.sendRedirect(req.getContextPath() + '/' + project.getUrl());
-			} else {
-				// redirect to error page.
-				// TODO try and get this to go back to the form page with an
-				// error at the top.
-				resp.sendRedirect(req.getContextPath() + '/' + project.getUrl() + '/' + getUrlName() + "/failed");
-			}
+		ParametersAction parameters = new ParametersAction(values);
+
+		M2ReleaseArgumentsAction arguments = new M2ReleaseArgumentsAction();
+		arguments.setDryRun(isDryRun);
+
+		arguments.setReleaseVersion(releaseVersion);
+		arguments.setDevelopmentVersion(developmentVersion);
+		// TODO - re-implement versions on specific modules.
+
+		arguments.setCloseNexusStage(closeNexusStage);
+		arguments.setRepoDescription(repoDescription);
+		arguments.setScmUsername(scmUsername);
+		arguments.setScmPassword(scmPassword);
+		arguments.setScmTagName(scmTag);
+		arguments.setScmCommentPrefix(scmCommentPrefix);
+		arguments.setAppendHusonUserName(appendHusonUserName);
+		arguments.setHudsonUserName(Hudson.getAuthentication().getName());
+
+		
+		if (project.scheduleBuild(0, new ReleaseCause(), parameters, arguments)) {
+			resp.sendRedirect(req.getContextPath() + '/' + project.getUrl());
+		} else {
+			// redirect to error page.
+			// TODO try and get this to go back to the form page with an
+			// error at the top.
+			resp.sendRedirect(req.getContextPath() + '/' + project.getUrl() + '/' + getUrlName() + "/failed");
 		}
 	}
 

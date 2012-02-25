@@ -43,10 +43,10 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	
 	private boolean isDryRun;
 
-    /**
-     * Version number that was released.
-     */
-    private String versionNumber;
+	/**
+	 * Version number that was released.
+	 */
+	private String versionNumber;
 
 	/**
 	 * Construct a new BadgeIcon to a Maven release build.
@@ -59,13 +59,13 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 		this.isDryRun = isDryRun;
 	}
 
-    public Object readResolve() {
-        // try to recover versionNumber from tooltipText
-        if (versionNumber==null && tooltipText.startsWith("Release - ")) {
-            versionNumber = tooltipText.substring("Release - ".length());
-        }
-        return this;
-    }
+	public Object readResolve() {
+		// try to recover versionNumber from tooltipText
+		if (versionNumber == null && tooltipText.startsWith("Release - ")) {
+			versionNumber = tooltipText.substring("Release - ".length());
+		}
+		return this;
+	}
 
 	/**
 	 * Gets the string to be displayed.
@@ -101,17 +101,17 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 		return isDryRun ?  "Release (dryRun) - " + versionNumber : "Release - " + versionNumber;
 	}
 
-    /**
-     * Gets the version number that was released.
-     *
-     * @return
-     *      Can be <code>null</code> if we are dealing with very legacy data that doesn't contain this information.
-     */
-    public String getVersionNumber() {
-        return versionNumber;
-    }
-    
-    public boolean isDryRun() {
+	/**
+	 * Gets the version number that was released.
+	 * 
+	 * @return Can be <code>null</code> if we are dealing with very legacy data
+	 *         that doesn't contain this information.
+	 */
+	public String getVersionNumber() {
+		return versionNumber;
+	}
+
+	public boolean isDryRun() {
 		return isDryRun;
 	}
 }

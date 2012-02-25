@@ -87,24 +87,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	
 	private transient Logger log = LoggerFactory.getLogger(M2ReleaseBuildWrapper.class);
 	
-	private transient boolean             doRelease           = false;
-	private transient boolean             closeNexusStage     = true;
-	private transient boolean             isDryRun            = false;
-
-    private transient String              releaseVersion;
-	private transient String              developmentVersion;
-	
-	private transient boolean             appendHudsonBuildNumber;
-	private transient String              repoDescription;
-	private transient String              scmUsername;
-	private transient String              scmPassword;
-	private transient String              scmCommentPrefix;
-	private transient String              scmTag;
-	
-	private transient boolean             appendHusonUserName;
-	private transient String              hudsonUserName;
-
-	/** For backwards compatibility with older configurations. */
+	/** For backwards compatibility with older configurations. @deprecated */
+	@Deprecated
 	public transient boolean              defaultVersioningMode;
 	
 	private String                        scmUserEnvVar                = "";
@@ -134,111 +118,109 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public Environment setUp(@SuppressWarnings("rawtypes") AbstractBuild build, Launcher launcher, final BuildListener listener)
 	                                                                                              throws IOException,
 	                                                                                              InterruptedException {
-		
-		synchronized (getModuleSet(build)) {
-			if (!doRelease) {
-				// we are not performing a release so don't need a custom tearDown.
-				return new Environment() {
-					/** intentionally blank */
-					@Override
-					public void buildEnvVars(Map<String, String> env) {
-						if(StringUtils.isNotBlank(releaseEnvVar)){
-							// inform others that we are NOT doing a release build
-							env.put(releaseEnvVar, "false");
-						}
-					}
-				};
-			}
-			// reset for the next build.
-			doRelease = false;
-			
-			StringBuilder buildGoals = new StringBuilder();
 
-			buildGoals.append("-DdevelopmentVersion=").append(developmentVersion).append(' ');
-			buildGoals.append("-DreleaseVersion=").append(releaseVersion).append(' ');
-			
-			if (scmUsername != null) {
-				buildGoals.append("-Dusername=").append(scmUsername).append(' ');
-			}
-			
-			if (scmPassword != null) {
-				buildGoals.append("-Dpassword=").append(scmPassword).append(' ');					
-			}
-			
-			if (scmCommentPrefix != null) {
-				buildGoals.append("\"-DscmCommentPrefix=");
-				buildGoals.append(scmCommentPrefix);
-				if(appendHusonUserName) {
-				    buildGoals.append(String.format("(%s)", hudsonUserName));
+		if (!isReleaseBuild(build)) {
+			// we are not performing a release so don't need a custom tearDown.
+			return new Environment() {
+				/** intentionally blank */
+				@Override
+				public void buildEnvVars(Map<String, String> env) {
+					if (StringUtils.isNotBlank(releaseEnvVar)) {
+						// inform others that we are NOT doing a release build
+						env.put(releaseEnvVar, "false");
+					}
 				}
-				buildGoals.append("\" ");
-			}
-			
-			if (scmTag != null) {
-			    buildGoals.append("-Dtag=").append(scmTag).append(' ');
-			}
-			
-			if(isDryRun){
-			    buildGoals.append(getDryRunGoals());
-			}else{
-			    buildGoals.append(getReleaseGoals());    
-			}
-			
-			build.addAction(new M2ReleaseArgumentInterceptorAction(buildGoals.toString()));
-			build.addAction(new M2ReleaseBadgeAction(releaseVersion, isDryRun));
+			};
 		}
 		
+		// we are a release build
+		M2ReleaseArgumentsAction args = build.getAction(M2ReleaseArgumentsAction.class);
+		StringBuilder buildGoals = new StringBuilder();
+
+		buildGoals.append("-DdevelopmentVersion=").append(args.getDevelopmentVersion()).append(' ');
+		buildGoals.append("-DreleaseVersion=").append(args.getReleaseVersion()).append(' ');
+
+		if (args.getScmUsername() != null) {
+			buildGoals.append("-Dusername=").append(args.getScmUsername()).append(' ');
+		}
+
+		if (args.getScmPassword() != null) {
+			buildGoals.append("-Dpassword=").append(args.getScmPassword()).append(' ');
+		}
+
+		if (args.getScmCommentPrefix() != null) {
+			buildGoals.append("\"-DscmCommentPrefix=");
+			buildGoals.append(args.getScmCommentPrefix());
+			if (args.isAppendHusonUserName()) {
+				buildGoals.append(String.format("(%s)", args.getHudsonUserName()));
+			}
+			buildGoals.append("\" ");
+		}
+
+		if (args.getScmTagName() != null) {
+			buildGoals.append("-Dtag=").append(args.getScmTagName()).append(' ');
+		}
+
+		if (args.isDryRun()) {
+			buildGoals.append(getDryRunGoals());
+		}
+		else {
+			buildGoals.append(getReleaseGoals());
+		}
+
+		build.addAction(new M2ReleaseArgumentInterceptorAction(buildGoals.toString()));
+		build.addAction(new M2ReleaseBadgeAction(args.getReleaseVersion(), args.isDryRun()));
+
 		return new Environment() {
-			
+
 			@Override
 			public void buildEnvVars(Map<String, String> env) {
-				if(StringUtils.isNotBlank(releaseEnvVar)){
+				if (StringUtils.isNotBlank(releaseEnvVar)) {
 					// inform others that we are doing a release build
 					env.put(releaseEnvVar, "true");
 				}
 			}
 
 			@Override
-			public boolean tearDown(@SuppressWarnings("rawtypes") AbstractBuild bld, BuildListener lstnr) throws IOException,
-			                                                               InterruptedException {
+			public boolean tearDown(@SuppressWarnings("rawtypes") AbstractBuild bld, BuildListener lstnr)
+					throws IOException, InterruptedException {
 				boolean retVal = true;
 				final MavenModuleSet mmSet = getModuleSet(bld);
-				final boolean localcloseStage;
-				synchronized (mmSet) {
-					// get a local variable so we don't have to synchronize on mmSet any more than we have to.
-					localcloseStage = closeNexusStage;
-				}
+				M2ReleaseArgumentsAction args = bld.getAction(M2ReleaseArgumentsAction.class);
 				
-				if(isDryRun){
+				if (args.isDryRun()) {
 					lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");
 				}
 
-				if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !isDryRun) {
-				    // keep this build.
-				    lstnr.getLogger().println("[M2Release] marking build to keep until the next release build");
-                    bld.keepLog();
+				if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !args.isDryRun()) {
+					// keep this build.
+					lstnr.getLogger().println("[M2Release] marking build to keep until the next release build");
+					bld.keepLog();
 
-				    for (Run run: (RunList<? extends Run>) (bld.getProject().getBuilds())) {
-				        M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
-			            if (a!=null && run.getResult()== Result.SUCCESS && !a.isDryRun()) {
-			                if (bld.getNumber() != run.getNumber()) {
-			                    lstnr.getLogger().println("[M2Release] removing keep build from build " + run.getNumber());
-			                    run.keepLog(false);
-			                    break;
-			                }
-			            }
-			        }
+					for (Run run : (RunList<? extends Run>) (bld.getProject().getBuilds())) {
+						M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
+						if (a != null && run.getResult() == Result.SUCCESS && !a.isDryRun()) {
+							if (bld.getNumber() != run.getNumber()) {
+								lstnr.getLogger().println(
+										"[M2Release] removing keep build from build " + run.getNumber());
+								run.keepLog(false);
+								break;
+							}
+						}
+					}
 				}
-				
-				if (localcloseStage && !isDryRun) {
-					StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor().getNexusUser(), getDescriptor().getNexusPassword()); 
+
+				if (args.isCloseNexusStage() && !args.isDryRun()) {
+					StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor()
+							.getNexusUser(), getDescriptor().getNexusPassword());
 					try {
 						MavenModule rootModule = mmSet.getRootModule();
 						// TODO grab the version that we have just released...
-						Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId, rootModule.getModuleName().artifactId, releaseVersion);
+						Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId,
+								rootModule.getModuleName().artifactId, args.getReleaseVersion());
 						if (stage != null) {
 							lstnr.getLogger().println("[M2Release] Closing repository " + stage);
-							client.closeStage(stage, repoDescription);
+							client.closeStage(stage, args.getRepoDescription());
 							lstnr.getLogger().println("[M2Release] Closed staging repository.");
 						}
 						else {
@@ -251,65 +233,12 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						log.error("[M2Release] Could not close repository", ex);
 						retVal = false;
 					}
-				}				
+				}
 				return retVal;
 			}
 		};
 	}
 
-
-	void enableRelease() {
-		doRelease = true;
-	}
-	
-	void markAsDryRun(boolean isDryRun){
-		this.isDryRun = isDryRun;
-	}
-
-    public void setReleaseVersion(String releaseVersion) {
-        this.releaseVersion = releaseVersion;
-    }
-
-
-    public void setDevelopmentVersion(String developmentVersion) {
-        this.developmentVersion = developmentVersion;
-    }
-
-	public void setAppendHudsonBuildNumber(boolean appendHudsonBuildNumber) {
-		this.appendHudsonBuildNumber = appendHudsonBuildNumber;
-	}
-
-	public void setCloseNexusStage(boolean closeNexusStage) {
-		this.closeNexusStage = closeNexusStage;
-	}
-
-	public void setRepoDescription(String repoDescription) {
-		this.repoDescription = repoDescription;
-	}
-	
-	public void setScmUsername(String scmUsername) {
-		this.scmUsername = scmUsername;
-	}
-	
-	public void setScmPassword(String scmPassword) {
-		this.scmPassword = scmPassword;
-	}
-	
-	public void setScmCommentPrefix(String scmCommentPrefix) {
-		this.scmCommentPrefix = scmCommentPrefix;
-	}
-	
-	/**
-     * @param scmTag the scmTag to set
-     */
-    public void setScmTag(String scmTag) {
-        this.scmTag = scmTag;
-    }
-
-
-    public void setAppendHusonUserName(boolean appendHusonUserName) {
-		this.appendHusonUserName = appendHusonUserName;
-	}
 	
 	public boolean isSelectCustomScmCommentPrefix() {
 		return selectCustomScmCommentPrefix;
@@ -325,10 +254,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	public void setSelectAppendHudsonUsername(boolean selectAppendHudsonUsername) {
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
-	}
-
-	public void setHudsonUserName(String hudsonUserName) {
-		this.hudsonUserName = hudsonUserName;
 	}
 
 	private MavenModuleSet getModuleSet(AbstractBuild<?,?> build) {
@@ -401,11 +326,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		
 		//public static final PermissionGroup PERMISSIONS = new PermissionGroup(M2ReleaseBuildWrapper.class, Messages._PermissionGroup_Title());
 		public static final Permission CREATE_RELEASE;
-		
+
 		static {
 			Permission tmpPerm = null;
 			try {
-				// Jenkins change the security model in a non backward compatible way :-(
+				// Jenkins changed the security model in a non backward compatible way :-(
 				// JENKINS-10661
 				Class<?> permissionScopeClass = Class.forName("hudson.security.PermissionScope");
 				Object psArr = Array.newInstance(permissionScopeClass, 2);
@@ -414,8 +339,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				Array.set(psArr, 0, f.get(null));
 				f = permissionScopeClass.getDeclaredField("ITEM");
 				Array.set(psArr, 1, f.get(null));
-				
-				Object[] permissionScopes = (Object[]) psArr;
 				
 				Constructor<Permission> ctor = Permission.class.getConstructor(PermissionGroup.class, 
 						String.class, 
@@ -430,9 +353,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				                            Hudson.ADMINISTER,
 //				                            true,
 				                            f.get(null));
+				LoggerFactory.getLogger(M2ReleaseBuildWrapper.class).info("Using new style Permission with PermissionScope");
+
 			}
 			// all these exceptions are Jenkins < 1.421 or Hudson
-			// wouldn#t multicatch be nice!
+			// wouldn't multicatch be nice!
 			catch (NoSuchMethodException ex) {
 				LoggerFactory.getLogger(M2ReleaseBuildWrapper.class).warn("Using Legacy Permission as new PermissionScope not detected. {}", ex.getMessage());
 			}
@@ -455,6 +380,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				LoggerFactory.getLogger(M2ReleaseBuildWrapper.class).warn("Using Legacy Permission as new PermissionScope not detected. {}", ex.getMessage());
 			}
 			if (tmpPerm == null) {
+				LoggerFactory.getLogger(M2ReleaseBuildWrapper.class).warn("Using Legacy Permission as new style permission with PermissionScope failed");
 				tmpPerm = new Permission(Item.PERMISSIONS,
 				                         "Release", //$NON-NLS-1$
 				                          Messages._CreateReleasePermission_Description(),
@@ -576,6 +502,14 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			}
 			return FormValidation.ok();
 		}
+	}
+	
+	/**
+	 * Evaluate if the current build should be a release build.
+	 * @return <code>true</code> if this build is a release build.
+	 */
+	private boolean isReleaseBuild(@SuppressWarnings("rawtypes") AbstractBuild build) {
+		return (build.getCause(ReleaseCause.class) != null);
 	}
 
 }
