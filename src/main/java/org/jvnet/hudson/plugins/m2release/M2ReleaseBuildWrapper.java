@@ -519,4 +519,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return (build.getCause(ReleaseCause.class) != null);
 	}
 
+	/** Recreate the logger on de-serialisation. */
+	private Object readResolve() {
+		log = LoggerFactory.getLogger(M2ReleaseBuildWrapper.class);
+		return this;
+	}
 }
