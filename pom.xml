@@ -119,11 +119,11 @@
 	<!-- Jenkins is no longer synced to central so we need to bootstrap -->
 	<repositories>
 		<repository>
-			<id>m.g.o</id>
+			<id>r.jc.o</id>
 			<releases>
 				<enabled>true</enabled>
 			</releases>
-			<url>http://maven.glassfish.org/content/groups/public/</url>
+			<url>http://repo.jenkins-ci.org/public</url>
 		</repository>
 	</repositories>
 </project>
