@@ -100,8 +100,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
 	public boolean                        selectScmCredentials         = DescriptorImpl.DEFAULT_SELECT_SCM_CREDENTIALS;
 	
+	public int                            numberOfReleaseBuildsToKeep  = DescriptorImpl.DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP;
+	
 	@DataBoundConstructor
-	public M2ReleaseBuildWrapper(String releaseGoals, String dryRunGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, String releaseEnvVar, String scmUserEnvVar, String scmPasswordEnvVar) {
+	public M2ReleaseBuildWrapper(String releaseGoals, String dryRunGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, String releaseEnvVar, String scmUserEnvVar, String scmPasswordEnvVar, int numBuildsToKeep) {
 		super();
 		this.releaseGoals = releaseGoals;
 		this.dryRunGoals = dryRunGoals;
@@ -111,6 +113,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		this.releaseEnvVar = releaseEnvVar;
 		this.scmUserEnvVar = scmUserEnvVar;
 		this.scmPasswordEnvVar = scmPasswordEnvVar;
+		this.numberOfReleaseBuildsToKeep = numBuildsToKeep;
 	}
 
 
@@ -192,19 +195,33 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");
 				}
 
+				int buildsKept = 0;
 				if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !args.isDryRun()) {
-					// keep this build.
-					lstnr.getLogger().println("[M2Release] marking build to keep until the next release build");
-					bld.keepLog();
-
+					if (numberOfReleaseBuildsToKeep > 0 || numberOfReleaseBuildsToKeep == -1) {
+						// keep this build.
+						lstnr.getLogger().println("[M2Release] assigning keep build to current build.");
+						bld.keepLog();
+						buildsKept++;
+					}
+					// the value may have changed since a previous release so go searching...
+					
 					for (Run run : (RunList<? extends Run>) (bld.getProject().getBuilds())) {
-						M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
-						if (a != null && run.getResult() == Result.SUCCESS && !a.isDryRun()) {
-							if (bld.getNumber() != run.getNumber()) {
-								lstnr.getLogger().println(
-										"[M2Release] removing keep build from build " + run.getNumber());
-								run.keepLog(false);
-								break;
+						if (isSuccessfulReleaseBuild(run)) {
+							if (bld.getNumber() != run.getNumber()) { // not sure we still need this check..
+								if (shouldKeepBuildNumber(numberOfReleaseBuildsToKeep, buildsKept)) {
+									if (!run.isKeepLog()) {
+										lstnr.getLogger().println(
+												"[M2Release] assigning keep build to build " + run.getNumber());
+										run.keepLog(true);
+									}
+								}
+								else {
+									if (run.isKeepLog()) {
+										lstnr.getLogger().println(
+												"[M2Release] removing keep build from build " + run.getNumber());
+										run.keepLog(false);
+									}
+								}
 							}
 						}
 					}
@@ -243,6 +260,26 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				}
 				return retVal;
 			}
+
+			/**
+			 * evaluate if the specified build is a sucessful release build (not including dry runs)
+			 * @param run the run to check
+			 * @return <code>true</code> if this is a successful release build that is not a dry run.
+			 */
+			private boolean isSuccessfulReleaseBuild(Run run) {
+				M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
+				if (a != null && !run.isBuilding() && run.getResult().isBetterOrEqualTo(Result.SUCCESS) && !a.isDryRun()) {
+					return true;
+				}
+				return false;
+			}
+			
+			private boolean shouldKeepBuildNumber(int numToKeep, int numKept) {
+				if (numToKeep == -1) {
+					return true;
+				}
+				return numKept < numToKeep;
+			}
 		};
 	}
 
@@ -262,6 +299,14 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public void setSelectAppendHudsonUsername(boolean selectAppendHudsonUsername) {
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 	}
+	
+	public int getNumberOfReleaseBuildsToKeep() {
+		return numberOfReleaseBuildsToKeep;
+	}
+	
+	public void setNumberOfreleaseBuildsToKeep(int numberOfReleaseBuildsToKeep) {
+		this.numberOfReleaseBuildsToKeep = numberOfReleaseBuildsToKeep;
+	}
 
 	private MavenModuleSet getModuleSet(AbstractBuild<?,?> build) {
 		if (build instanceof MavenBuild) {
@@ -280,11 +325,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 	}
 
-
-	@Override
-	public Action getProjectAction(@SuppressWarnings("rawtypes") AbstractProject job) {
-		return new M2ReleaseAction((MavenModuleSet) job, selectCustomScmCommentPrefix, selectAppendHudsonUsername, selectScmCredentials);
-	}
 
 	public static boolean hasReleasePermission(@SuppressWarnings("rawtypes") AbstractProject job) {
 		return job.hasPermission(DescriptorImpl.CREATE_RELEASE);
@@ -312,9 +352,30 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	}
 	
 	public String getDryRunGoals() {
-        return StringUtils.isBlank(dryRunGoals) ? DescriptorImpl.DEFAULT_DRYRUN_GOALS : dryRunGoals;
-    }
+		return StringUtils.isBlank(dryRunGoals) ? DescriptorImpl.DEFAULT_DRYRUN_GOALS : dryRunGoals;
+	}
 	
+
+	/**
+	 * Evaluate if the current build should be a release build.
+	 * @return <code>true</code> if this build is a release build.
+	 */
+	private boolean isReleaseBuild(@SuppressWarnings("rawtypes") AbstractBuild build) {
+		return (build.getCause(ReleaseCause.class) != null);
+	}
+
+
+	/** Recreate the logger on de-serialisation. */
+	private Object readResolve() {
+		log = LoggerFactory.getLogger(M2ReleaseBuildWrapper.class);
+		return this;
+	}
+
+	@Override
+	public Action getProjectAction(@SuppressWarnings("rawtypes") AbstractProject job) {
+		return new M2ReleaseAction((MavenModuleSet) job, selectCustomScmCommentPrefix, selectAppendHudsonUsername, selectScmCredentials);
+	}
+
 	/**
 	 * Hudson defines a method {@link Builder#getDescriptor()}, which returns the corresponding
 	 * {@link Descriptor} object. Since we know that it's actually {@link DescriptorImpl}, override the method
@@ -327,11 +388,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return (DescriptorImpl) super.getDescriptor();
 	}
 
-
 	@Extension
 	public static class DescriptorImpl extends BuildWrapperDescriptor {
 		
-		//public static final PermissionGroup PERMISSIONS = new PermissionGroup(M2ReleaseBuildWrapper.class, Messages._PermissionGroup_Title());
 		public static final Permission CREATE_RELEASE;
 
 		static {
@@ -406,7 +465,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		public static final boolean    DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX = false;
 		public static final boolean    DEFAULT_SELECT_APPEND_HUDSON_USERNAME    = false;
 		public static final boolean    DEFAULT_SELECT_SCM_CREDENTIALS           = false;
-		
+
+		public static final int        DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP = 1;
+
 		private boolean nexusSupport  = false;
 		private String  nexusURL      = null;
 		private String  nexusUser     = "deployment";                                    //$NON-NLS-1$
@@ -509,19 +570,5 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			}
 			return FormValidation.ok();
 		}
-	}
-	
-	/**
-	 * Evaluate if the current build should be a release build.
-	 * @return <code>true</code> if this build is a release build.
-	 */
-	private boolean isReleaseBuild(@SuppressWarnings("rawtypes") AbstractBuild build) {
-		return (build.getCause(ReleaseCause.class) != null);
-	}
-
-	/** Recreate the logger on de-serialisation. */
-	private Object readResolve() {
-		log = LoggerFactory.getLogger(M2ReleaseBuildWrapper.class);
-		return this;
 	}
 }

@@ -10,10 +10,14 @@
 		-->
 		<f:textbox field="releaseGoals" value="${h.defaulted(instance.releaseGoals,descriptor.DEFAULT_RELEASE_GOALS)}"/>
 	</f:entry>
-    <f:entry title="DryRun goals and options" help="/plugin/m2release/help-projectConfig-dryRunGoals.html">
-        <f:textbox field="dryRunGoals" value="${h.defaulted(instance.dryRunGoals,descriptor.DEFAULT_DRYRUN_GOALS)}"/>
-    </f:entry>  
-        	
+	<f:entry title="DryRun goals and options" help="/plugin/m2release/help-projectConfig-dryRunGoals.html">
+		<f:textbox field="dryRunGoals" value="${h.defaulted(instance.dryRunGoals,descriptor.DEFAULT_DRYRUN_GOALS)}"/>
+	</f:entry>  
+
+	<f:entry title="Number of successful release builds to keep" help="/plugin/m2release/help-projectConfig-numberOfReleaseBuildsToKeep.html">
+		<f:textbox field="numberOfReleaseBuildsToKeep" value="${instance.numberOfReleaseBuildsToKeep}" />
+	</f:entry>
+
 	<f:entry title="Default versioning mode" help="/plugin/m2release/help-projectConfig-versioningMode.html">
 		<select name="defaultVersioningMode">
 			<f:option value="${descriptor.VERSIONING_AUTO}" selected="${descriptor.VERSIONING_AUTO == h.defaulted(instance.defaultVersioningMode,descriptor.DEFAULT_VERSIONING)}">None</f:option>
@@ -26,7 +30,7 @@
 		<f:checkbox name="selectCustomScmCommentPrefix" checked="${h.defaulted(instance.selectCustomScmCommentPrefix,descriptor.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX)}"/>
 	</f:entry>
 	
-	<f:entry title="Preselect append Hudson username" help="/plugin/m2release/help-projectConfig-selectAppendHudsonUsername.html">
+	<f:entry title="Preselect append Jenkins username" help="/plugin/m2release/help-projectConfig-selectAppendHudsonUsername.html">
 		<f:checkbox name="selectAppendHudsonUsername" checked="${h.defaulted(instance.selectAppendHudsonUsername,descriptor.DEFAULT_SELECT_APPEND_HUDSON_USERNAME)}"/>
 	</f:entry>
 	
@@ -35,14 +39,14 @@
 	</f:entry>
 	
 	<f:advanced>
-        <f:entry title="Release envrionment variable" help="/plugin/m2release/help-projectConfig-releaseEnvVar.html">
-            <f:textbox field="releaseEnvVar" value="${h.defaulted(instance.releaseEnvVar,descriptor.DEFAULT_RELEASE_ENVVAR)}"/>
-        </f:entry>
-        <f:entry title="SCM username environment variable" help="/plugin/m2release/help-projectConfig-scmUserEnvVar.html">
-            <f:textbox field="scmUserEnvVar" value="${instance.scmUserEnvVar}"/>
-        </f:entry>
-        <f:entry title="SCM password environment variable" help="/plugin/m2release/help-projectConfig-scmPasswordEnvVar.html">
-            <f:textbox field="scmPasswordEnvVar" value="${instance.scmPasswordEnvVar}"/>
-        </f:entry>
+		<f:entry title="Release environment variable" help="/plugin/m2release/help-projectConfig-releaseEnvVar.html">
+			<f:textbox field="releaseEnvVar" value="${h.defaulted(instance.releaseEnvVar,descriptor.DEFAULT_RELEASE_ENVVAR)}"/>
+		</f:entry>
+		<f:entry title="SCM username environment variable" help="/plugin/m2release/help-projectConfig-scmUserEnvVar.html">
+			<f:textbox field="scmUserEnvVar" value="${instance.scmUserEnvVar}"/>
+		</f:entry>
+		<f:entry title="SCM password environment variable" help="/plugin/m2release/help-projectConfig-scmPasswordEnvVar.html">
+			<f:textbox field="scmPasswordEnvVar" value="${instance.scmPasswordEnvVar}"/>
+		</f:entry>
 	</f:advanced>
 </j:jelly>
