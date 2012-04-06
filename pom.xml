@@ -119,11 +119,11 @@
 	<!-- Jenkins is no longer synced to central so we need to bootstrap -->
 	<repositories>
 		<repository>
-			<id>r.jc.o</id>
+			<id>repo.jenkins-ci.org</id>
 			<releases>
 				<enabled>true</enabled>
 			</releases>
-			<url>http://repo.jenkins-ci.org/public</url>
+			<url>http://repo.jenkins-ci.org/public/</url>
 		</repository>
 	</repositories>
 	<build>
@@ -168,4 +168,12 @@
 			</plugins>
 		</pluginManagement>
 	</build>
-</project>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>repo.jenkins-ci.org</id>
+            <url>http://repo.jenkins-ci.org/public/</url>
+        </pluginRepository>
+    </pluginRepositories>
+</project>  
+
