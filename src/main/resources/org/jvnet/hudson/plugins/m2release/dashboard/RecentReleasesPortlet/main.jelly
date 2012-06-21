@@ -1,0 +1,80 @@
+<!--
+The MIT License
+
+Copyright (c) 2004-2009, Sun Microsystems, Inc., Kohsuke Kawaguchi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+-->
+
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:dp="/hudson/plugins/view/dashboard" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <table class="sortable pane bigtable" id="projectStatus">
+  <tr><td class="pane-header" colspan="5">${it.displayName}</td></tr>
+  <j:set var="recentReleases" value="${it.getRecentReleases(50)}"/>
+  <j:choose>
+    <j:when test="${empty(recentReleases)}">
+      <tr><td colspan="5">${%No recent release builds}</td></tr>
+    </j:when>
+    <j:otherwise>
+      <t:setIconSize/>
+	    <tr>
+	      <th><st:nbsp/></th>
+	      <th>${%Build}</th>
+	      <th initialSortDir="up">${%Date}</th>
+	      <th>${%Release Version}</th>
+	      <th><st:nbsp/></th>
+	    </tr>
+	    <!-- TODO: support gradual expansion of the list -->
+	    <j:forEach var="b" items="${h.subList(recentReleases,50)}">
+	      <tr>
+	        <td data="${b.iconColor.ordinal()}">
+	          <a href="${b.url}">
+	            <img src="${imagesURL}/${iconSize}/${b.buildStatusUrl}"
+	                 alt="${b.iconColor.description}"/>
+	          </a>
+	        </td>
+	        <td>
+	          <a href="${b.parent.url}">${b.parent.displayName}</a>
+	          <st:nbsp/>
+	          <a href="${b.url}">#${b.number}</a>
+	        </td>
+	        <td data="${b.timestampString2}">
+	          ${b.timestampString}
+	        </td>
+	        <td>
+	          ${it.getReleaseVersion(b)}
+	        </td>
+	        <td>
+	          <a href="${b.url}console">
+	            <img src="${imagesURL}/${subIconSize}/terminal.gif" title="${%Console output}" alt="${%Console output}" border="0" />
+	          </a>
+	        </td>
+	      </tr>
+	    </j:forEach>
+    </j:otherwise>
+  </j:choose>
+  </table>
+  <div align="right" style="margin:1em">
+    <span style="padding-left:1em">
+      <a href="rssAll"><img src="${imagesURL}/atom.gif" border="0" alt="Feed"/> ${%for all releases}</a>
+    </span>
+    <span style="padding-left:1em">
+      <a href="rssFailed"><img src="${imagesURL}/atom.gif" border="0" alt="Feed"/> ${%for failed releases}</a>
+    </span>
+  </div>
+</j:jelly>

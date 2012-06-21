@@ -13,7 +13,7 @@
 	</parent>
 
 	<name>Jenkins Maven Release Plug-in Plug-in</name>
-	<description>A plug-in that enables you to perform releases using the maven-release-plugin from Hudson.</description>
+	<description>A plug-in that enables you to perform releases using the maven-release-plugin from Jenkins.</description>
 	<url>http://wiki.jenkins-ci.org/display/JENKINS/M2+Release+Plugin</url>
 
 	<properties>
@@ -81,7 +81,12 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-
+	  	<dependency>
+	  		<groupId>org.jenkins-ci.plugins</groupId>
+	  		<artifactId>dashboard-view</artifactId>
+	  		<version>2.0</version>
+	  		<optional>true</optional>
+	  	</dependency>
 		<!--
 		<dependency>
 			<groupId>org.jenkins-ci.main</groupId>
