@@ -304,7 +304,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return numberOfReleaseBuildsToKeep;
 	}
 	
-	public void setNumberOfreleaseBuildsToKeep(int numberOfReleaseBuildsToKeep) {
+	public void setNumberOfReleaseBuildsToKeep(int numberOfReleaseBuildsToKeep) {
 		this.numberOfReleaseBuildsToKeep = numberOfReleaseBuildsToKeep;
 	}
 
