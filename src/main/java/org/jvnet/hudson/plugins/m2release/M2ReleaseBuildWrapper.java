@@ -103,7 +103,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public int                            numberOfReleaseBuildsToKeep  = DescriptorImpl.DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP;
 	
 	@DataBoundConstructor
-	public M2ReleaseBuildWrapper(String releaseGoals, String dryRunGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, String releaseEnvVar, String scmUserEnvVar, String scmPasswordEnvVar, int numBuildsToKeep) {
+	public M2ReleaseBuildWrapper(String releaseGoals, String dryRunGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, String releaseEnvVar, String scmUserEnvVar, String scmPasswordEnvVar, int numberOfReleaseBuildsToKeep) {
 		super();
 		this.releaseGoals = releaseGoals;
 		this.dryRunGoals = dryRunGoals;
@@ -113,7 +113,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		this.releaseEnvVar = releaseEnvVar;
 		this.scmUserEnvVar = scmUserEnvVar;
 		this.scmPasswordEnvVar = scmPasswordEnvVar;
-		this.numberOfReleaseBuildsToKeep = numBuildsToKeep;
+		this.numberOfReleaseBuildsToKeep = numberOfReleaseBuildsToKeep;
 	}
 
 
@@ -304,7 +304,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return numberOfReleaseBuildsToKeep;
 	}
 	
-	public void setNumberOfreleaseBuildsToKeep(int numberOfReleaseBuildsToKeep) {
+	public void setNumberOfReleaseBuildsToKeep(int numberOfReleaseBuildsToKeep) {
 		this.numberOfReleaseBuildsToKeep = numberOfReleaseBuildsToKeep;
 	}
 
