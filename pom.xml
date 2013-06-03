@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>org.jvnet.hudson.plugins.m2release</groupId>
+	<groupId>org.jenkins-ci.plugins.m2release</groupId>
 	<artifactId>m2release</artifactId>
 	<packaging>hpi</packaging>
 	<version>0.11.0-SNAPSHOT</version>
@@ -9,7 +9,7 @@
 	<parent>
 		<groupId>org.jenkins-ci.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>1.442</version>
+		<version>1.466</version>
 	</parent>
 
 	<name>Jenkins Maven Release Plug-in Plug-in</name>
@@ -52,23 +52,10 @@
 	</licenses>
 
 	<dependencies>
-		<!-- 
-		 we need some functionality from the jenkins/maven plugin that is post fork
-		 but we need to be able to work with both.
-		 So we set both the maven job types to optional.
-		 -->
 		<dependency>
 			<groupId>org.jenkins-ci.main</groupId>
 			<artifactId>maven-plugin</artifactId>
 			<scope>compile</scope>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
- 			<groupId>org.hudsonci.plugins</groupId>
-			<artifactId>maven-plugin</artifactId>
-			<version>2.2.1</version>
-			<scope>runtime</scope>
-			<optional>true</optional>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.maven.release</groupId>
@@ -131,54 +118,21 @@
 			<url>http://repo.jenkins-ci.org/public/</url>
 		</repository>
 	</repositories>
-	<build>
-		<pluginManagement>
-			<plugins>
-				<!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
-				<plugin>
-					<groupId>org.eclipse.m2e</groupId>
-					<artifactId>lifecycle-mapping</artifactId>
-					<version>1.0.0</version>
-					<configuration>
-						<lifecycleMappingMetadata>
-							<pluginExecutions>
-								<pluginExecution>
-									<pluginExecutionFilter>
-										<groupId>
-											org.jenkins-ci.tools
-										</groupId>
-										<artifactId>
-											maven-hpi-plugin
-										</artifactId>
-										<versionRange>
-											[1.74,)
-										</versionRange>
-										<goals>
-											<goal>insert-test</goal>
-											<goal>validate</goal>
-											<goal>test-hpl</goal>
-											<goal>
-												resolve-test-dependencies
-											</goal>
-										</goals>
-									</pluginExecutionFilter>
-									<action>
-										<ignore />
-									</action>
-								</pluginExecution>
-							</pluginExecutions>
-						</lifecycleMappingMetadata>
-					</configuration>
-				</plugin>
-			</plugins>
-		</pluginManagement>
-	</build>
-
 	<pluginRepositories>
 		<pluginRepository>
 		<id>repo.jenkins-ci.org</id>
 		<url>http://repo.jenkins-ci.org/public/</url>
 		</pluginRepository>
 	</pluginRepositories>
-</project>  
 
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.jenkins-ci.tools</groupId>
+				<artifactId>maven-hpi-plugin</artifactId>
+				<version>1.96</version>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
