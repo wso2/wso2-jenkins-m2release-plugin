@@ -11,3 +11,5 @@ bin
 # Build output
 target
 /work
+
+.clover

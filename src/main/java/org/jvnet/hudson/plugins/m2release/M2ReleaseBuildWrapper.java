@@ -195,38 +195,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");
 				}
 
-				int buildsKept = 0;
-				if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !args.isDryRun()) {
-					if (numberOfReleaseBuildsToKeep > 0 || numberOfReleaseBuildsToKeep == -1) {
-						// keep this build.
-						lstnr.getLogger().println("[M2Release] assigning keep build to current build.");
-						bld.keepLog();
-						buildsKept++;
-					}
-					// the value may have changed since a previous release so go searching...
-					
-					for (Run run : (RunList<? extends Run>) (bld.getProject().getBuilds())) {
-						if (isSuccessfulReleaseBuild(run)) {
-							if (bld.getNumber() != run.getNumber()) { // not sure we still need this check..
-								if (shouldKeepBuildNumber(numberOfReleaseBuildsToKeep, buildsKept)) {
-									if (!run.isKeepLog()) {
-										lstnr.getLogger().println(
-												"[M2Release] assigning keep build to build " + run.getNumber());
-										run.keepLog(true);
-									}
-								}
-								else {
-									if (run.isKeepLog()) {
-										lstnr.getLogger().println(
-												"[M2Release] removing keep build from build " + run.getNumber());
-										run.keepLog(false);
-									}
-								}
-							}
-						}
-					}
-				}
-
 				if (args.isCloseNexusStage() && !args.isDryRun()) {
 					StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor()
 							.getNexusUser(), getDescriptor().getNexusPassword());
@@ -243,7 +211,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 							}
 							else {
 								lstnr.getLogger().println("[M2Release] Dropping repository " + stage);
-								client.closeStage(stage, args.getRepoDescription());
+								client.dropStage(stage);
 								lstnr.getLogger().println("[M2Release] Dropped staging repository.");
 							}
 						}
@@ -253,11 +221,51 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						}
 					}
 					catch (StageException ex) {
-						lstnr.fatalError("[M2Release] Could not close repository , %s\n", ex.toString());
+						lstnr.fatalError("[M2Release] Could not close repository , %1$s\n", ex.getMessage());
+						ex.printStackTrace(lstnr.getLogger());
 						log.error("[M2Release] Could not close repository", ex);
 						retVal = false;
 					}
 				}
+				int buildsKept = 0;
+				if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !args.isDryRun()) {
+					if (numberOfReleaseBuildsToKeep > 0 || numberOfReleaseBuildsToKeep == -1) {
+						// keep this build.
+						lstnr.getLogger().println("[M2Release] assigning keep build to current build.");
+						bld.keepLog();
+						buildsKept++;
+					}
+
+					// the value may have changed since a previous release so go searching...
+					log.debug("looking for extra release builds to lock/unlock.");
+					for (Run run : (RunList<? extends Run>) (bld.getProject().getBuilds())) {
+						log.debug("checking build #{}", run.getNumber());
+						if (isSuccessfulReleaseBuild(run)) {
+							log.debug("build #{} was successful.", run.getNumber());
+							if (bld.getNumber() != run.getNumber()) { // not sure we still need this check..
+								if (shouldKeepBuildNumber(numberOfReleaseBuildsToKeep, buildsKept)) {
+									buildsKept++;
+									if (!run.isKeepLog()) {
+										lstnr.getLogger().println(
+												"[M2Release] assigning keep build to build " + run.getNumber());
+										run.keepLog(true);
+									}
+								}
+								else {
+									if (run.isKeepLog()) {
+										lstnr.getLogger().println(
+												"[M2Release] removing keep build from build " + run.getNumber());
+										run.keepLog(false);
+									}
+								}
+							}
+						}
+						else {
+							log.debug("build #{} was NOT successful release build.", run.getNumber());
+						}
+					}
+				}
+
 				return retVal;
 			}
 
@@ -478,6 +486,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		public DescriptorImpl() {
 			super(M2ReleaseBuildWrapper.class);
 			load();
+			if (nexusURL != null && !nexusURL.endsWith("/")) {
+				nexusURL = nexusURL + "/";
+			}
 		}
 
 
@@ -492,8 +503,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			if (nexusSupport) {
 				JSONObject nexusParams = json.getJSONObject("nexusSupport"); //$NON-NLS-1$
 				nexusURL = Util.fixEmpty(nexusParams.getString("nexusURL")); //$NON-NLS-1$
-				if (nexusURL != null && nexusURL.endsWith("/")) { //$NON-NLS-1$
-					nexusURL = nexusURL.substring(0, nexusURL.length() - 1);
+				if (nexusURL != null && !nexusURL.endsWith("/")) { //$NON-NLS-1$
+					nexusURL = nexusURL + "/";
 				}
 				nexusUser = Util.fixEmpty(nexusParams.getString("nexusUser")); //$NON-NLS-1$
 				nexusPassword = nexusParams.getString("nexusPassword"); //$NON-NLS-1$
@@ -545,8 +556,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				return FormValidation.ok();
 			}
 			final String testURL;
-			if (urlValue.endsWith("/")) {
-				testURL = urlValue.substring(0, urlValue.length() - 1);
+			if (!urlValue.endsWith("/")) {
+				testURL = urlValue + "/";
 			}
 			else {
 				testURL = urlValue;

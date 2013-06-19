@@ -27,9 +27,13 @@ import java.net.MalformedURLException;
 import java.net.URL;
 
 public enum StageAction {
-	CLOSE("%1$s/service/local/staging/profiles/%2$s/finish"),
-	//PROMOTE("%1$s/service/local/staging/profiles/%2$s/promote"),
-	DROP("%1$s/service/local/staging/profiles/%2$s/drop");
+	CLOSE("service/local/staging/profiles/%1$s/finish"),
+	/** not yet supported. */
+	PROMOTE("service/local/staging/profiles/%1$s/promote"),
+	// release is just a promote without a target profile
+	RELEASE("service/local/staging/profiles/%1$s/promote"),
+	//START("service/local/staging/profiles/%1$s/start"),
+	DROP("service/local/staging/profiles/%1$s/drop");
 	
 	/** 
 	 * Template for the URL for this action.
@@ -55,7 +59,7 @@ public enum StageAction {
 	 * @throws MalformedURLException if the URL is invalid
 	 */
 	public URL getURL(URL baseURL, Stage stage) throws MalformedURLException {
-		return new URL(String.format(urlTemplate, baseURL, stage.getProfileID(), stage.getStageID()));
+		return new URL(baseURL, String.format(urlTemplate, stage.getProfileID(), stage.getStageID()));
 	}
 	
 }

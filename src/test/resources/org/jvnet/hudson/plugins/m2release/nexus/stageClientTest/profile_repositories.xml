@@ -1,0 +1,97 @@
+<stagingRepositories>
+  <data>
+    <stagingProfileRepository>
+      <profileId>3e1e1bad64f</profileId>
+      <profileName>test</profileName>
+      <profileType>repository</profileType>
+      <repositoryId>test-001</repositoryId>
+      <repositoryName>test-001 (u:deployuser, a:127.0.1.2)</repositoryName>
+      <type>open</type>
+      <policy>release</policy>
+      <userId>deploy_release</userId>
+      <userAgent>Maven 3.0.4</userAgent>
+      <ipAddress>127.0.3.1</ipAddress>
+      <repositoryURI>http://127.0.0.1/content/repositories/test-001</repositoryURI>
+      <createdDate>Tue Apr 30 16:17:52 BST 2013</createdDate>
+      <closedDate>n/a</closedDate>
+      <provider>maven2</provider>
+      <releaseRepositoryId>releases</releaseRepositoryId>
+      <releaseRepositoryName>My Releases</releaseRepositoryName>
+    </stagingProfileRepository>
+    <stagingProfileRepository>
+      <profileId>3e1e1bad64f</profileId>
+      <profileName>test</profileName>
+      <profileType>repository</profileType>
+      <repositoryId>test-005</repositoryId>
+      <repositoryName>test-005 (u:deployuser, a:127.0.1.2)</repositoryName>
+      <type>open</type>
+      <policy>release</policy>
+      <userId>deploy_release</userId>
+      <userAgent>Maven 3.0.4</userAgent>
+      <ipAddress>127.0.3.1</ipAddress>
+      <repositoryURI>http://127.0.0.1/content/repositories/test-005</repositoryURI>
+      <createdDate>Thu May 02 11:39:43 BST 2013</createdDate>
+      <closedDate>n/a</closedDate>
+      <provider>maven2</provider>
+      <releaseRepositoryId>releases</releaseRepositoryId>
+      <releaseRepositoryName>My Releases</releaseRepositoryName>
+    </stagingProfileRepository>
+    <stagingProfileRepository>
+      <profileId>3e1e1bad64f</profileId>
+      <profileName>test</profileName>
+      <profileType>repository</profileType>
+      <repositoryId>test-002</repositoryId>
+      <repositoryName>test-002 (u:deployuser, a:127.0.1.2)</repositoryName>
+      <type>closed</type>
+      <policy>release</policy>
+      <userId>deploy_release</userId>
+      <userAgent>Maven 3.0.4</userAgent>
+      <ipAddress>127.0.3.1</ipAddress>
+      <repositoryURI>http://127.0.0.1/content/repositories/test-002</repositoryURI>
+      <createdDate>Mon Apr 08 08:30:53 BST 2013</createdDate>
+      <closedDate>Mon Apr 08 08:36:54 BST 2013</closedDate>
+      <description>A description of stage 002</description>
+      <provider>maven2</provider>
+      <releaseRepositoryId>releases</releaseRepositoryId>
+      <releaseRepositoryName>My Releases</releaseRepositoryName>
+    </stagingProfileRepository>
+    <stagingProfileRepository>
+      <profileId>3e1e1bad64f</profileId>
+      <profileName>test</profileName>
+      <profileType>repository</profileType>
+      <repositoryId>test-003</repositoryId>
+      <repositoryName>test-003 (u:deployuser, a:127.0.1.2)</repositoryName>
+      <type>closed</type>
+      <policy>release</policy>
+      <userId>deploy_release</userId>
+      <userAgent>Maven 3.0.4</userAgent>
+      <ipAddress>127.0.3.1</ipAddress>
+      <repositoryURI>http://127.0.0.1/content/repositories/test-003</repositoryURI>
+      <createdDate>Tue Apr 09 15:00:21 BST 2013</createdDate>
+      <closedDate>Tue Apr 09 15:24:41 BST 2013</closedDate>
+      <description>A description of stage 003</description>
+      <provider>maven2</provider>
+      <releaseRepositoryId>releases</releaseRepositoryId>
+      <releaseRepositoryName>My Releases</releaseRepositoryName>
+    </stagingProfileRepository>
+    <stagingProfileRepository>
+      <profileId>3e1e1bad64f</profileId>
+      <profileName>test</profileName>
+      <profileType>repository</profileType>
+      <repositoryId>test-004</repositoryId>
+      <repositoryName>test-004 (u:deployuser, a:127.0.1.2)</repositoryName>
+      <type>closed</type>
+      <policy>release</policy>
+      <userId>deploy_release</userId>
+      <userAgent>Maven 3.0.4</userAgent>
+      <ipAddress>127.0.3.1</ipAddress>
+      <repositoryURI>http://127.0.0.1/content/repositories/test-004</repositoryURI>
+      <createdDate>Fri Apr 12 13:50:05 BST 2013</createdDate>
+      <closedDate>Fri Apr 12 14:05:57 BST 2013</closedDate>
+      <description>A description of stage 004</description>
+      <provider>maven2</provider>
+      <releaseRepositoryId>releases</releaseRepositoryId>
+      <releaseRepositoryName>My Releases</releaseRepositoryName>
+    </stagingProfileRepository>
+  </data>
+</stagingRepositories>

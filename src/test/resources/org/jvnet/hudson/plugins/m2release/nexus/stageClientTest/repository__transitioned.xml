@@ -1,0 +1,24 @@
+<stagingProfileRepository>
+  <profileId>256fd5bb949</profileId>
+  <profileName>testprofile</profileName>
+  <profileType>repository</profileType>
+  <repositoryId>testprofile-1002</repositoryId>
+  <type>closed</type>
+  <policy>release</policy>
+  <userId>admin</userId>
+  <userAgent>Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.110 Safari/537.36</userAgent>
+  <ipAddress>127.0.0.1</ipAddress>
+  <repositoryURI>http://127.0.0.1:8081/nexus/content/repositories/testprofile-1002</repositoryURI>
+  <created>2013-06-12T08:31:08.703-07:00</created>
+  <createdDate>Wed Jun 12 08:31:08 PDT 2013</createdDate>
+  <createdTimestamp>1371051068703</createdTimestamp>
+  <updated>2013-06-13T08:41:49.110-07:00</updated>
+  <updatedDate>Thu Jun 13 08:41:49 PDT 2013</updatedDate>
+  <updatedTimestamp>1371138109110</updatedTimestamp>
+  <description>mydescription</description>
+  <provider>maven2</provider>
+  <releaseRepositoryId>releases</releaseRepositoryId>
+  <releaseRepositoryName>Releases</releaseRepositoryName>
+  <notifications>4</notifications>
+  <transitioning>false</transitioning>
+</stagingProfileRepository>
