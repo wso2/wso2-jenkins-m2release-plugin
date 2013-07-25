@@ -264,7 +264,7 @@ public class StageClient {
 	 */
 	public void checkAuthentication() throws StageException {
 		try {
-			URL url = new URL(nexusURL, "service/local/status");
+			URL url = new URL(nexusURL, "service/local/status?perms=1");
 			Document doc = getDocument(url);
 
 			/*
