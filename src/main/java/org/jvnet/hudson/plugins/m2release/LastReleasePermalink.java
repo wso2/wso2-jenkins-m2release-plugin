@@ -23,17 +23,17 @@
  */
 package org.jvnet.hudson.plugins.m2release;
 
-import hudson.model.Job;
-import hudson.model.PermalinkProjectAction.Permalink;
 import hudson.model.Result;
+import hudson.model.PermalinkProjectAction.Permalink;
 import hudson.model.Run;
+import jenkins.model.PeepholePermalink;
 
 /**
  * Resolves to the last release.
  *
  * @author Kohsuke Kawaguchi
  */
-public class LastReleasePermalink extends Permalink {
+public class LastReleasePermalink extends PeepholePermalink {
     public static final Permalink INSTANCE = new LastReleasePermalink();
 
     @Override
@@ -46,14 +46,17 @@ public class LastReleasePermalink extends Permalink {
         return "lastRelease";
     }
 
-    @Override
-    public Run<?,?> resolve(Job<?, ?> job) {
-        for (Run<?,?> run: job.getBuilds()){
-            M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
-            if (a!=null && run.getResult()== Result.SUCCESS && !a.isDryRun()) {
-                return run;
-            }
-        }
-        return null;
+   @Override
+   public boolean apply(Run<?, ?> run) {
+      boolean retVal = false;
+      M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
+      if (a != null) {
+          if (!run.isBuilding()) {
+              if (!a.isDryRun() && run.getResult() == Result.SUCCESS) {
+                  retVal = true;
+              }
+          }
+      }
+      return retVal;
     }
 }

@@ -4,12 +4,12 @@
 	<groupId>org.jenkins-ci.plugins.m2release</groupId>
 	<artifactId>m2release</artifactId>
 	<packaging>hpi</packaging>
-	<version>0.12.0-SNAPSHOT</version>
+	<version>0.13.0-SNAPSHOT</version>
 
 	<parent>
 		<groupId>org.jenkins-ci.plugins</groupId>
 		<artifactId>plugin</artifactId>
-		<version>1.466</version>
+		<version>1.509.2</version>
 	</parent>
 
 	<name>Jenkins Maven Release Plug-in Plug-in</name>
@@ -117,6 +117,29 @@
 		</dependency>
 	</dependencies>
 
+	<build>
+		<plugins>
+			<plugin>
+				<!-- until the fix for JENKINS-18918 is available in a backported skip any apache-maven-xxx folders in classes -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>2.4</version>
+				<configuration>
+					<excludes>
+						<exclude>**/apache-maven-*/*</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.jenkins-ci.tools</groupId>
+				<artifactId>maven-hpi-plugin</artifactId>
+				<version>1.96</version>
+				<extensions>true</extensions>
+			</plugin>
+		</plugins>
+	</build>
+
+
 	<!-- Jenkins is no longer synced to central so we need to bootstrap -->
 	<repositories>
 		<repository>
@@ -133,15 +156,5 @@
 		<url>http://repo.jenkins-ci.org/public/</url>
 		</pluginRepository>
 	</pluginRepositories>
-
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.jenkins-ci.tools</groupId>
-				<artifactId>maven-hpi-plugin</artifactId>
-				<version>1.96</version>
-			</plugin>
-		</plugins>
-	</build>
 
 </project>

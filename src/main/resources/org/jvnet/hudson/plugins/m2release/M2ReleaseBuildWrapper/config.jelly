@@ -15,7 +15,7 @@
 	</f:entry>  
 
 	<f:entry title="Number of successful release builds to keep" help="/plugin/m2release/help-projectConfig-numberOfReleaseBuildsToKeep.html">
-		<f:textbox field="numberOfReleaseBuildsToKeep" value="${instance.numberOfReleaseBuildsToKeep}" />
+		<f:textbox field="numberOfReleaseBuildsToKeep" value="${h.defaulted(instance.numberOfReleaseBuildsToKeep, descriptor.DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP)}" />
 	</f:entry>
 
 	<f:entry title="Default versioning mode" help="/plugin/m2release/help-projectConfig-versioningMode.html">
