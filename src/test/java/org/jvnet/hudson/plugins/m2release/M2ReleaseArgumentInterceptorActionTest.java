@@ -143,7 +143,7 @@ public class M2ReleaseArgumentInterceptorActionTest {
 		assertEquals(false, resultingListBuilder.toMaskArray()[1]);
 		
 		assertEquals("-amd", resultingListBuilder.toList().get(2));
-		assertEquals(true, resultingListBuilder.toMaskArray()[2]);
+		assertEquals(false, resultingListBuilder.toMaskArray()[2]);
 		
 		assertEquals("foo,bar", resultingListBuilder.toList().get(3));
 		assertEquals(false, resultingListBuilder.toMaskArray()[3]);
@@ -152,7 +152,10 @@ public class M2ReleaseArgumentInterceptorActionTest {
 		assertEquals(false, resultingListBuilder.toMaskArray()[4]);
 		
 		assertEquals("argument3", resultingListBuilder.toList().get(5));
-		assertEquals(false, resultingListBuilder.toMaskArray()[5]);		
+		assertEquals(true, resultingListBuilder.toMaskArray()[5]);	
+		
+		assertEquals("argument4", resultingListBuilder.toList().get(6));
+		assertEquals(false, resultingListBuilder.toMaskArray()[6]);		
 	}
 
 	/**
@@ -184,7 +187,7 @@ public class M2ReleaseArgumentInterceptorActionTest {
 		assertEquals(false, resultingListBuilder.toMaskArray()[1]);
 		
 		assertEquals("-amd", resultingListBuilder.toList().get(2));
-		assertEquals(true, resultingListBuilder.toMaskArray()[2]);
+		assertEquals(false, resultingListBuilder.toMaskArray()[2]);
 		
 		assertEquals("-pl", resultingListBuilder.toList().get(3));
 		assertEquals(false, resultingListBuilder.toMaskArray()[3]);		
