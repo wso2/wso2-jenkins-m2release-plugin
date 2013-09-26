@@ -24,10 +24,15 @@
 package org.jvnet.hudson.plugins.m2release;
 
 import static org.junit.Assert.*;
+import static org.mockito.BDDMockito.*;
+import hudson.maven.MavenModuleSet;
+import hudson.maven.MavenModuleSetBuild;
 import hudson.util.ArgumentListBuilder;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 /**
  * @author Robert Kleinschmager
@@ -37,7 +42,7 @@ public class M2ReleaseArgumentInterceptorActionTest {
 
 	private M2ReleaseArgumentInterceptorAction sut;
 	private ArgumentListBuilder listBuilder;
-
+	
 	@Before
 	public void setUp()
 	{
@@ -58,7 +63,7 @@ public class M2ReleaseArgumentInterceptorActionTest {
 		listBuilder.add("argument4", false);
 		
 		//WHEN
-		ArgumentListBuilder resultingListBuilder = sut.intercept(listBuilder, null);
+		ArgumentListBuilder resultingListBuilder = sut.internalIntercept(listBuilder, true);
 		
 		//THEN
 		assertEquals("argument1", resultingListBuilder.toList().get(0));
@@ -93,7 +98,7 @@ public class M2ReleaseArgumentInterceptorActionTest {
 		listBuilder.add("argument4", false);
 		
 		//WHEN
-		ArgumentListBuilder resultingListBuilder = sut.intercept(listBuilder, null);
+		ArgumentListBuilder resultingListBuilder = sut.internalIntercept(listBuilder, true);
 		
 		//THEN
 		assertEquals("argument1", resultingListBuilder.toList().get(0));
@@ -112,23 +117,87 @@ public class M2ReleaseArgumentInterceptorActionTest {
 	/**
 	 * Test method for {@link org.jvnet.hudson.plugins.m2release.M2ReleaseArgumentInterceptorAction#intercept(hudson.util.ArgumentListBuilder, hudson.maven.MavenModuleSetBuild)}.
 	 */
-	@Test(expected=IllegalArgumentException.class)
-	public void interceptorShouldFailIfOrderIsNotCorrect() {
+	@Test
+	public void interceptorSkipIfOrderIsNotCorrect() {
 		
 		//GIVEN
 		listBuilder.add("argument1");
 		listBuilder.add("argument2");
 		
-		// wrong order of the incrementalBuild arguments
+		// wrong order of the incrementalBuild arguments, means, that they are not added by jenkins incremental feature
 		listBuilder.add("-amd");
 		listBuilder.add("foo,bar");
 		listBuilder.add("-pl");
 		
 		listBuilder.add("argument3", true);
+		listBuilder.add("argument4", false);		
+
+		//WHEN
+		ArgumentListBuilder resultingListBuilder = sut.internalIntercept(listBuilder, true);	
+		
+		//THEN
+		assertEquals("argument1", resultingListBuilder.toList().get(0));
+		assertEquals(false, resultingListBuilder.toMaskArray()[0]);
+		
+		assertEquals("argument2", resultingListBuilder.toList().get(1));
+		assertEquals(false, resultingListBuilder.toMaskArray()[1]);
+		
+		assertEquals("-amd", resultingListBuilder.toList().get(2));
+		assertEquals(true, resultingListBuilder.toMaskArray()[2]);
+		
+		assertEquals("foo,bar", resultingListBuilder.toList().get(3));
+		assertEquals(false, resultingListBuilder.toMaskArray()[3]);
+		
+		assertEquals("-pl", resultingListBuilder.toList().get(4));
+		assertEquals(false, resultingListBuilder.toMaskArray()[4]);
+		
+		assertEquals("argument3", resultingListBuilder.toList().get(5));
+		assertEquals(false, resultingListBuilder.toMaskArray()[5]);		
+	}
+
+	/**
+	 * Test method for {@link org.jvnet.hudson.plugins.m2release.M2ReleaseArgumentInterceptorAction#intercept(hudson.util.ArgumentListBuilder, hudson.maven.MavenModuleSetBuild)}.
+	 */
+	@Test
+	public void interceptorShouldSkipIfNoIncrementalBuild() {
+		
+		//GIVEN
+		listBuilder.add("argument1");
+		listBuilder.add("argument2");
+		
+		// incremental build arguments, which should be filtered out
+		listBuilder.add("-amd");
+		listBuilder.add("-pl");
+		listBuilder.add("foo,bar");
+		
+		listBuilder.add("argument3", true);
 		listBuilder.add("argument4", false);
 		
 		//WHEN
-		sut.intercept(listBuilder, null);		
-	}
+		ArgumentListBuilder resultingListBuilder = sut.internalIntercept(listBuilder, false);
+		
+		//THEN
+		assertEquals("argument1", resultingListBuilder.toList().get(0));
+		assertEquals(false, resultingListBuilder.toMaskArray()[0]);
+		
+		assertEquals("argument2", resultingListBuilder.toList().get(1));
+		assertEquals(false, resultingListBuilder.toMaskArray()[1]);
+		
+		assertEquals("-amd", resultingListBuilder.toList().get(2));
+		assertEquals(true, resultingListBuilder.toMaskArray()[2]);
+		
+		assertEquals("-pl", resultingListBuilder.toList().get(3));
+		assertEquals(false, resultingListBuilder.toMaskArray()[3]);		
+		
+		assertEquals("foo,bar", resultingListBuilder.toList().get(4));
+		assertEquals(false, resultingListBuilder.toMaskArray()[4]);
+		
+		assertEquals("argument3", resultingListBuilder.toList().get(5));
+		assertEquals(true, resultingListBuilder.toMaskArray()[5]);
+		
 
+		assertEquals("argument4", resultingListBuilder.toList().get(6));
+		assertEquals(false, resultingListBuilder.toMaskArray()[6]);
+	}
+	
 }

@@ -26,6 +26,7 @@ package org.jvnet.hudson.plugins.m2release;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Logger;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -43,6 +44,10 @@ import hudson.util.ArgumentListBuilder;
  */
 public class M2ReleaseArgumentInterceptorAction implements MavenArgumentInterceptorAction {
 
+
+    private static final Logger LOGGER = Logger.getLogger(M2ReleaseArgumentInterceptorAction.class.getName());
+
+	
 	private String goalsAndOptions;
 	@Deprecated
 	private transient boolean isDryRun; // keep backward compatible
@@ -69,24 +74,64 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
 
 	public ArgumentListBuilder intercept(ArgumentListBuilder mavenargs, MavenModuleSetBuild build) {
 		
-		ArgumentListBuilder returnListBuilder = new ArgumentListBuilder();
+		// calling internal Method, which now (without MavenModuleSetBuil) can be tested easily
+		return internalIntercept(mavenargs, build.getProject().isIncrementalBuild());
+	}
+	
+	//@PublicForTests
+	public ArgumentListBuilder internalIntercept(ArgumentListBuilder mavenArgumentListBuilder, boolean isIncrementalBuild) {
 		
-		if (containsJenkinsIncrementalBuildArguments(mavenargs))
+		ArgumentListBuilder returnListBuilder = new ArgumentListBuilder();
+		List<String> argumentList = mavenArgumentListBuilder.toList();
+		
+		if (isIncrementalBuild && containsJenkinsIncrementalBuildArguments(argumentList))
 		{
-			returnListBuilder = removeAllIncrementalBuildArguments(mavenargs.clone());
+			LOGGER.config("This Maven build seems to be configured as 'Incremental build'. This will be disables, as always the full project will be released");
+			returnListBuilder = removeAllIncrementalBuildArguments(mavenArgumentListBuilder.clone());
 		} else
 		{
-			returnListBuilder = mavenargs.clone();
+			returnListBuilder = mavenArgumentListBuilder.clone();
 		}
 		
 		return returnListBuilder;
 	}
 	
-	private boolean containsJenkinsIncrementalBuildArguments(ArgumentListBuilder mavenargs)
-	{
-		int amdIndex = mavenargs.toList().indexOf("-amd");		
-		return amdIndex != -1;
+	
+	/**
+	 * tries to assume, if jenkins itself added some parameters to the argument list, which cause a maven multi module project to be build incremental
+	 * @param mavenargs
+	 * @param build
+	 * @return
+	 * 
+	 * @see 
+	 */
+	private boolean containsJenkinsIncrementalBuildArguments(List<String> mavenargs) {
+		int amdIndex = mavenargs.indexOf("-amd");
+		int plIndex = mavenargs.indexOf("-pl");
+		
+		boolean amdArgumentExists = amdIndex != -1;
+		boolean plArgumentExists = plIndex != -1;
+		
+		if (amdArgumentExists && plArgumentExists) 
+		{
+			boolean amdAndPlArgumentAreInSupposedOrder = amdIndex == plIndex-1;
+			// assuming, that the argument behind -pl is the list of projects, as added in {@link MavenModuleSetBuild}
+			
+			return amdAndPlArgumentAreInSupposedOrder && thereIsAnArgumentBehinPlArgument(mavenargs, plIndex);
+		} else {
+			return false;
+			
+		}		
 	}
+	
+	private boolean thereIsAnArgumentBehinPlArgument(List<String> mavenargs, int plIndex) {
+		if (mavenargs.size() >= plIndex+1)
+		{
+			return mavenargs.get(plIndex+1) != null;
+		}		
+		return false;
+	}
+	
 	
 	private ArgumentListBuilder removeAllIncrementalBuildArguments(
 			ArgumentListBuilder mavenargs) {
@@ -95,6 +140,7 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
 		// -amd
 		// -pl
 		// <list of modules>
+		LOGGER.finer("Start removing the arguments '-amd -pl <list of modules>' from argument list");
 		
 		ArgumentListBuilder returnListBuilder = new ArgumentListBuilder();
 		
@@ -119,8 +165,9 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
 		Preconditions.checkArgument("-pl".equals(removedPl));			
 		maskList.remove(amdIndex);
 		
-		oldArgumentList.remove(amdIndex);
-		maskList.remove(amdIndex);		
+		String removedModuleList = oldArgumentList.remove(amdIndex);
+		maskList.remove(amdIndex);
+		LOGGER.finer(String.format("Removed the arguments '-amd -pl %s' from argument list", removedModuleList));
 		
 		// rebuild
 		for (int i=0; i < oldArgumentList.size() ; i++) {
@@ -128,6 +175,8 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
 		}
 
 		ensureArgumentsAndMaskHaveSaveSize(returnListBuilder);
+		
+		LOGGER.fine(String.format("Rebuild maven argument list, old size=%s; new size=%s", oldArgumentList.size(), returnListBuilder.toList().size()));
 		
 		return returnListBuilder;
 	}
