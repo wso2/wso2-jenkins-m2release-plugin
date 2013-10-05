@@ -2,6 +2,7 @@
  * The MIT License
  * 
  * Copyright (c) 2011, Dominik Bartholdi
+ * Copyright (c) 2013, Robert Kleinschmager
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -40,6 +41,7 @@ import hudson.util.ArgumentListBuilder;
  * build.
  * 
  * @author Dominik Bartholdi
+ * @author Robert Kleinschmager
  * @version 0.9.0
  */
 public class M2ReleaseArgumentInterceptorAction implements MavenArgumentInterceptorAction {
@@ -78,8 +80,8 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
 		return internalIntercept(mavenargs, build.getProject().isIncrementalBuild());
 	}
 	
-	//@PublicForTests
-	public ArgumentListBuilder internalIntercept(ArgumentListBuilder mavenArgumentListBuilder, boolean isIncrementalBuild) {
+	
+	ArgumentListBuilder internalIntercept(ArgumentListBuilder mavenArgumentListBuilder, boolean isIncrementalBuild) {
 		
 		ArgumentListBuilder returnListBuilder = new ArgumentListBuilder();
 		List<String> argumentList = mavenArgumentListBuilder.toList();
