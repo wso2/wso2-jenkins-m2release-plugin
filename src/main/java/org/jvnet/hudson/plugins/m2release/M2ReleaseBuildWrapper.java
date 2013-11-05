@@ -148,7 +148,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 
 		if (args.getScmPassword() != null) {
-			buildGoals.append("-Dpassword=").append(args.getScmPassword()).append(' ');
+			buildGoals.append("-Dpassword=***** ");
 		}
 
 		if (args.getScmCommentPrefix() != null) {
