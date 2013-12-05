@@ -35,6 +35,7 @@ import com.google.common.collect.Lists;
 import hudson.maven.MavenArgumentInterceptorAction;
 import hudson.maven.MavenModuleSetBuild;
 import hudson.util.ArgumentListBuilder;
+import hudson.util.Secret;
 
 /**
  * This action provides the arguments to trigger maven in case of a release
@@ -53,9 +54,16 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
 	private String goalsAndOptions;
 	@Deprecated
 	private transient boolean isDryRun; // keep backward compatible
+    private final Secret scmPassword;
 
+    @Deprecated
 	public M2ReleaseArgumentInterceptorAction(String goalsAndOptions) {
+        this(goalsAndOptions, null);
+    }
+
+    public M2ReleaseArgumentInterceptorAction(String goalsAndOptions, String scmPassword) {
 		this.goalsAndOptions = goalsAndOptions;
+        this.scmPassword = scmPassword != null ? Secret.fromString(scmPassword) : null;
 	}
 
 	public String getIconFileName() {
@@ -94,6 +102,10 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
 		{
 			returnListBuilder = mavenArgumentListBuilder.clone();
 		}
+
+        if (scmPassword != null) {
+            returnListBuilder.addMasked("-Dpassword=" + scmPassword.getPlainText());
+        }
 		
 		return returnListBuilder;
 	}
