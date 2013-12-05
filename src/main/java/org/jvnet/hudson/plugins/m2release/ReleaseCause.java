@@ -23,27 +23,26 @@
  */
 package org.jvnet.hudson.plugins.m2release;
 
-import hudson.model.Hudson;
-import hudson.model.Cause.UserCause;
+import hudson.model.Cause.UserIdCause;
 
-public class ReleaseCause extends UserCause {
+public class ReleaseCause extends UserIdCause {
 
-	private String authenticationName;
-
-
-	public ReleaseCause() {
-		this.authenticationName = Hudson.getAuthentication().getName();
-	}
-
-
-	@Override
-	public String getUserName() {
-		return authenticationName;
-	}
-
-
-	@Override
+    // Kept for backwards compatibility with saved builds from older versions of the plugin.
+    // Should be removed in the future!
+    @Deprecated
+    private String authenticationName;
+    
+    @Override
+    public String getUserName() {
+        if (this.authenticationName != null) {
+            return authenticationName;
+        } else {
+            return super.getUserName();
+        }
+    }
+    
+    @Override
 	public String getShortDescription() {
-		return Messages.ReleaseCause_ShortDescription(authenticationName);
+		return Messages.ReleaseCause_ShortDescription(getUserName());
 	}
 }
