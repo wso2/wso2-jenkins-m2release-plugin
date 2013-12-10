@@ -25,7 +25,6 @@
 package org.jvnet.hudson.plugins.m2release;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -35,7 +34,6 @@ import com.google.common.collect.Lists;
 import hudson.maven.MavenArgumentInterceptorAction;
 import hudson.maven.MavenModuleSetBuild;
 import hudson.util.ArgumentListBuilder;
-import hudson.util.Secret;
 
 /**
  * This action provides the arguments to trigger maven in case of a release
@@ -51,10 +49,10 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
     private static final Logger LOGGER = Logger.getLogger(M2ReleaseArgumentInterceptorAction.class.getName());
 
 	
-	private String goalsAndOptions;
+	private final transient String goalsAndOptions;
 	@Deprecated
 	private transient boolean isDryRun; // keep backward compatible
-    private final Secret scmPassword;
+    private final transient String scmPassword;
 
     @Deprecated
 	public M2ReleaseArgumentInterceptorAction(String goalsAndOptions) {
@@ -63,7 +61,7 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
 
     public M2ReleaseArgumentInterceptorAction(String goalsAndOptions, String scmPassword) {
 		this.goalsAndOptions = goalsAndOptions;
-        this.scmPassword = scmPassword != null ? Secret.fromString(scmPassword) : null;
+        this.scmPassword = scmPassword;
 	}
 
 	public String getIconFileName() {
@@ -104,7 +102,7 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
 		}
 
         if (scmPassword != null) {
-            returnListBuilder.addMasked("-Dpassword=" + scmPassword.getPlainText());
+            returnListBuilder.addMasked("-Dpassword=" + scmPassword);
         }
 		
 		return returnListBuilder;
