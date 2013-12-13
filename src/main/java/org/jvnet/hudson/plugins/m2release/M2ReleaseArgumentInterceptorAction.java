@@ -25,7 +25,6 @@
 package org.jvnet.hudson.plugins.m2release;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -50,12 +49,19 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
     private static final Logger LOGGER = Logger.getLogger(M2ReleaseArgumentInterceptorAction.class.getName());
 
 	
-	private String goalsAndOptions;
+	private final transient String goalsAndOptions;
 	@Deprecated
 	private transient boolean isDryRun; // keep backward compatible
+    private final transient String scmPassword;
 
+    @Deprecated
 	public M2ReleaseArgumentInterceptorAction(String goalsAndOptions) {
+        this(goalsAndOptions, null);
+    }
+
+    public M2ReleaseArgumentInterceptorAction(String goalsAndOptions, String scmPassword) {
 		this.goalsAndOptions = goalsAndOptions;
+        this.scmPassword = scmPassword;
 	}
 
 	public String getIconFileName() {
@@ -94,6 +100,10 @@ public class M2ReleaseArgumentInterceptorAction implements MavenArgumentIntercep
 		{
 			returnListBuilder = mavenArgumentListBuilder.clone();
 		}
+
+        if (scmPassword != null) {
+            returnListBuilder.addMasked("-Dpassword=" + scmPassword);
+        }
 		
 		return returnListBuilder;
 	}

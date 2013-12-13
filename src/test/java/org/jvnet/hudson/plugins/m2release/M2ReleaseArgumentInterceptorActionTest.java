@@ -24,15 +24,11 @@
 package org.jvnet.hudson.plugins.m2release;
 
 import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
-import hudson.maven.MavenModuleSet;
-import hudson.maven.MavenModuleSetBuild;
 import hudson.util.ArgumentListBuilder;
+import java.util.Arrays;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
 /**
  * @author Robert Kleinschmager
@@ -203,4 +199,11 @@ public class M2ReleaseArgumentInterceptorActionTest {
 		assertEquals(false, resultingListBuilder.toMaskArray()[6]);
 	}
 	
+    @Test public void password() throws Exception {
+        M2ReleaseArgumentInterceptorAction xceptor = new M2ReleaseArgumentInterceptorAction("-Dusername=bob release:prepare release:perform", "s3cr3t");
+        ArgumentListBuilder args = xceptor.internalIntercept(new ArgumentListBuilder().add("-B").addTokenized(xceptor.getGoalsAndOptions(null)), false);
+        assertEquals("[-B, -Dusername=bob, release:prepare, release:perform, -Dpassword=s3cr3t]", Arrays.toString(args.toCommandArray()));
+        assertEquals("-B -Dusername=bob release:prepare release:perform ******", args.toString());
+    }
+
 }

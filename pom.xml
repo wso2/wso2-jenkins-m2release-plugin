@@ -45,9 +45,8 @@
 
 	<licenses>
 		<license>
-			<name>MIT</name>
-			<url>https://github.com/jenkinsci/m2release-plugin/blob/master/LICENCE.txt</url>
-			<distribution>repo</distribution>
+			<name>MIT License</name>
+			<url>http://www.opensource.org/licenses/mit-license.php</url>
 		</license>
 	</licenses>
 

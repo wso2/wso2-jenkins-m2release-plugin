@@ -147,10 +147,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			buildGoals.append("-Dusername=").append(args.getScmUsername()).append(' ');
 		}
 
-		if (args.getScmPassword() != null) {
-			buildGoals.append("-Dpassword=").append(args.getScmPassword()).append(' ');
-		}
-
 		if (args.getScmCommentPrefix() != null) {
 			buildGoals.append("\"-DscmCommentPrefix=");
 			buildGoals.append(args.getScmCommentPrefix());
@@ -171,7 +167,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			buildGoals.append(getReleaseGoals());
 		}
 
-		build.addAction(new M2ReleaseArgumentInterceptorAction(buildGoals.toString()));
+		build.addAction(new M2ReleaseArgumentInterceptorAction(buildGoals.toString(), args.getScmPassword()));
 		build.addAction(new M2ReleaseBadgeAction(args.getReleaseVersion(), args.isDryRun()));
 
 		return new Environment() {
