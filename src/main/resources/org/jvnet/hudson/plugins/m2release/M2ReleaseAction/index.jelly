@@ -14,7 +14,7 @@
 					<f:entry title="Development version">
 						<f:textbox name="developmentVersion" value="${it.computeNextVersion()}" />
 					</f:entry>
-					<f:entry title="Append Hudson Build Number">
+					<f:entry title="Append Jenkins Build Number">
 						<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
 					</f:entry>
 					<f:entry title="Dry run only?">
@@ -34,7 +34,7 @@
 						<f:entry title="Comment Prefix">
 							<f:textbox name="scmCommentPrefix" value="[maven-release-plugin]" />
 						</f:entry>
-						<f:entry title="Append Hudson Username" help="/plugin/m2release/help-actionRelease-appendHudsonUsername.html">
+						<f:entry title="Append Jenkins Username" help="/plugin/m2release/help-actionRelease-appendJenkinsUsername.html">
 							<f:checkbox name="appendHudsonUserName" checked="${it.selectAppendHudsonUsername}"/>
 						</f:entry>
 					</f:optionalBlock>
