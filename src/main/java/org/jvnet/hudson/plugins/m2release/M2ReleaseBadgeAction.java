@@ -27,19 +27,19 @@ package org.jvnet.hudson.plugins.m2release;
 import hudson.model.BuildBadgeAction;
 
 /**
- * The M2ReleaseBadgeAction displays a small icon next to any release builds in the build history.
+ * The M2ReleaseBadgeAction displays a small icon next to any release build in the build history.
  *
  * <p>
  * This object also remembers the release in a machine readable form so that
- * other plugins can introspect that the release had happened.
+ * other plugins can introspect that the release has happened.
  * 
  * @author domi
  * @author teilo
  */
 public class M2ReleaseBadgeAction implements BuildBadgeAction {
 
-	/** The tooltip text displayed to the user with the badge. */
-	private transient String tooltipText;
+	@Deprecated
+	private transient String tooltipText; // kept for backwards compatibility
 	
 	private boolean isDryRun;
 
@@ -50,9 +50,6 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 
 	/**
 	 * Construct a new BadgeIcon to a Maven release build.
-	 * 
-	 * @param tooltipText
-	 *        the tool tip text that should be displayed with the badge.
 	 */
 	public M2ReleaseBadgeAction(String versionNumber, boolean isDryRun) {
 		this.versionNumber = versionNumber;
@@ -60,7 +57,7 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	}
 
 	public Object readResolve() {
-		// try to recover versionNumber from tooltipText
+		// try to recover versionNumber from tooltipText (for builds by old versions of the plugin)
 		if (versionNumber == null && tooltipText.startsWith("Release - ")) {
 			versionNumber = tooltipText.substring("Release - ".length());
 		}
@@ -95,7 +92,7 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	}
 
 	/**
-	 * Gets the tool tip text that should be displayed to the user.
+	 * Gets the tooltip text that should be displayed to the user.
 	 */
 	public String getTooltipText() {
 		return isDryRun ?  "Release (dryRun) - " + versionNumber : "Release - " + versionNumber;
