@@ -47,13 +47,16 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	 * Version number that was released.
 	 */
 	private String versionNumber;
+	
+	private boolean failedBuild;
 
 	/**
-	 * Construct a new BadgeIcon to a Maven release build.
+	 * Construct a new BadgeIcon to a Maven release build. The build is set as successful.
 	 */
 	public M2ReleaseBadgeAction(String versionNumber, boolean isDryRun) {
 		this.versionNumber = versionNumber;
 		this.isDryRun = isDryRun;
+		this.failedBuild = false;
 	}
 
 	public Object readResolve() {
@@ -95,7 +98,20 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	 * Gets the tooltip text that should be displayed to the user.
 	 */
 	public String getTooltipText() {
-		return isDryRun ?  "Release (dryRun) - " + versionNumber : "Release - " + versionNumber;
+		StringBuilder str = new StringBuilder();
+
+		if (isFailedBuild()) {
+			str.append("Failed release");
+		} else {
+			str.append("Release");
+		}
+		if (isDryRun()) {
+			str.append(" (dryRun)");
+		}
+		str.append(" - ");
+		str.append(getVersionNumber());
+
+		return str.toString();
 	}
 
 	/**
@@ -111,4 +127,15 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	public boolean isDryRun() {
 		return isDryRun;
 	}
+
+	/**
+	 * Marks the build as failed.
+	 */
+	public void setFailedBuild(boolean isFailedBuild) {
+        this.failedBuild = isFailedBuild;
+    }
+
+    public boolean isFailedBuild() {
+        return failedBuild;
+    }
 }

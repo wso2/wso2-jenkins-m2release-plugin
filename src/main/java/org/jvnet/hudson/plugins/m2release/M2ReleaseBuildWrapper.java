@@ -184,13 +184,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			public boolean tearDown(@SuppressWarnings("rawtypes") AbstractBuild bld, BuildListener lstnr)
 					throws IOException, InterruptedException {
 				boolean retVal = true;
+				
 				final MavenModuleSet mmSet = getModuleSet(bld);
 				M2ReleaseArgumentsAction args = bld.getAction(M2ReleaseArgumentsAction.class);
-				
-				if (args.isDryRun()) {
-					lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");
-				}
-
 				if (args.isCloseNexusStage() && !args.isDryRun()) {
 					StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor()
 							.getNexusUser(), getDescriptor().getNexusPassword());
@@ -222,6 +218,15 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						log.error("[M2Release] Could not close repository", ex);
 						retVal = false;
 					}
+				}
+				
+				if (bld.getResult() != null && !bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
+					M2ReleaseBadgeAction badge = bld.getAction(M2ReleaseBadgeAction.class);
+					badge.setFailedBuild(true);
+				}
+				
+				if (args.isDryRun()) {
+					lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");
 				}
 				int buildsKept = 0;
 				if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !args.isDryRun()) {
@@ -266,7 +271,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			}
 
 			/**
-			 * evaluate if the specified build is a sucessful release build (not including dry runs)
+			 * evaluate if the specified build is a successful release build (not including dry runs)
 			 * @param run the run to check
 			 * @return <code>true</code> if this is a successful release build that is not a dry run.
 			 */

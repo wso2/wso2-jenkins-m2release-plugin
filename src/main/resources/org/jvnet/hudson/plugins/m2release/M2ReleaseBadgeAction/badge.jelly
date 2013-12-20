@@ -1,8 +1,13 @@
 <j:jelly xmlns:j="jelly:core">
-<j:if test="${it.isDryRun()}">
-       <img width="16" height="16" title="${it.tooltipText}" src="${rootURL}/plugin/m2release/img/new-package.png"/>
-    </j:if>
-    <j:if test="${!it.isDryRun()}">
-	   <img width="16" height="16" title="${it.tooltipText}" src="${imagesURL}/16x16/package.png"/>
-	</j:if>
-</j:jelly>  
+    <j:choose>
+        <j:when test="${it.isFailedBuild()}">
+            <img width="16" height="16" title="${it.tooltipText}" src="${rootURL}/plugin/m2release/img/releasebadge-failure.png"/>
+        </j:when>
+        <j:when test="${it.isDryRun()}">
+            <img width="16" height="16" title="${it.tooltipText}" src="${rootURL}/plugin/m2release/img/releasebadge-dryrun.png"/>
+        </j:when>
+        <j:otherwise>
+            <img width="16" height="16" title="${it.tooltipText}" src="${rootURL}/plugin/m2release/img/releasebadge.png"/>
+        </j:otherwise>
+    </j:choose>
+</j:jelly>
