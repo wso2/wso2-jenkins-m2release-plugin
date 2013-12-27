@@ -25,6 +25,9 @@
 package org.jvnet.hudson.plugins.m2release;
 
 import hudson.model.BuildBadgeAction;
+import hudson.model.Result;
+import hudson.model.Run;
+import jenkins.model.RunAction2;
 
 /**
  * The M2ReleaseBadgeAction displays a small icon next to any release build in the build history.
@@ -36,35 +39,14 @@ import hudson.model.BuildBadgeAction;
  * @author domi
  * @author teilo
  */
-public class M2ReleaseBadgeAction implements BuildBadgeAction {
+public class M2ReleaseBadgeAction implements BuildBadgeAction, RunAction2 {
 
-	@Deprecated
-	private transient String tooltipText; // kept for backwards compatibility
-	
-	private boolean isDryRun;
+	private transient Run run;
 
 	/**
-	 * Version number that was released.
+	 * Construct a new BadgeIcon to a Maven release build.
 	 */
-	private String versionNumber;
-	
-	private boolean failedBuild;
-
-	/**
-	 * Construct a new BadgeIcon to a Maven release build. The build is set as successful.
-	 */
-	public M2ReleaseBadgeAction(String versionNumber, boolean isDryRun) {
-		this.versionNumber = versionNumber;
-		this.isDryRun = isDryRun;
-		this.failedBuild = false;
-	}
-
-	public Object readResolve() {
-		// try to recover versionNumber from tooltipText (for builds by old versions of the plugin)
-		if (versionNumber == null && tooltipText.startsWith("Release - ")) {
-			versionNumber = tooltipText.substring("Release - ".length());
-		}
-		return this;
+	public M2ReleaseBadgeAction() {
 	}
 
 	/**
@@ -100,7 +82,7 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	public String getTooltipText() {
 		StringBuilder str = new StringBuilder();
 
-		if (isFailedBuild()) {
+		if (isFailedRelease()) {
 			str.append("Failed release");
 		} else {
 			str.append("Release");
@@ -116,26 +98,41 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 
 	/**
 	 * Gets the version number that was released.
-	 * 
-	 * @return Can be <code>null</code> if we are dealing with very legacy data
-	 *         that doesn't contain this information.
 	 */
 	public String getVersionNumber() {
-		return versionNumber;
-	}
-
-	public boolean isDryRun() {
-		return isDryRun;
+		M2ReleaseArgumentsAction args = run.getAction(M2ReleaseArgumentsAction.class);
+		return args.getReleaseVersion();
 	}
 
 	/**
-	 * Marks the build as failed.
+	 * Returns if the release was a dryRun or not.
 	 */
-	public void setFailedBuild(boolean isFailedBuild) {
-        this.failedBuild = isFailedBuild;
+	public boolean isDryRun() {
+		M2ReleaseArgumentsAction args = run.getAction(M2ReleaseArgumentsAction.class);
+		return args.isDryRun();
+	}
+
+	/**
+	 * Returns <code>true</code> if building the release failed.
+	 */
+    public boolean isFailedRelease() {
+    	return !isSuccessfulBuild(run);
     }
 
-    public boolean isFailedBuild() {
-        return failedBuild;
-    }
+	private boolean isSuccessfulBuild(Run run) {
+		Result result = run.getResult();
+		if (result != null) {
+			return result.isBetterOrEqualTo(Result.SUCCESS);
+		} else { // build is still in progress
+			return true;
+		}
+	}
+
+	public void onAttached(Run<?, ?> run) {
+		this.run = run;
+	}
+
+	public void onLoad(Run<?, ?> run) {
+		this.run = run;
+	}
 }

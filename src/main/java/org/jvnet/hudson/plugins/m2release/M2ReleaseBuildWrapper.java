@@ -168,7 +168,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 
 		build.addAction(new M2ReleaseArgumentInterceptorAction(buildGoals.toString(), args.getScmPassword()));
-		build.addAction(new M2ReleaseBadgeAction(args.getReleaseVersion(), args.isDryRun()));
+		build.addAction(new M2ReleaseBadgeAction());
 
 		return new Environment() {
 
@@ -218,11 +218,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						log.error("[M2Release] Could not close repository", ex);
 						retVal = false;
 					}
-				}
-				
-				if (bld.getResult() != null && !bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
-					M2ReleaseBadgeAction badge = bld.getAction(M2ReleaseBadgeAction.class);
-					badge.setFailedBuild(true);
 				}
 				
 				if (args.isDryRun()) {
