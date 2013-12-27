@@ -14,9 +14,6 @@
 					<f:entry title="Development version">
 						<f:textbox name="developmentVersion" value="${it.computeNextVersion()}" />
 					</f:entry>
-					<f:entry title="Append Jenkins Build Number">
-						<f:checkbox name="appendHudsonBuildNumber" checked="false"/>
-					</f:entry>
 					<f:entry title="Dry run only?">
                         <f:checkbox name="isDryRun" checked="false"/>
                     </f:entry>

@@ -207,7 +207,6 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		// good old http...
 		Map<?, ?> httpParams = req.getParameterMap();
 
-		final boolean appendHudsonBuildNumber = httpParams.containsKey("appendHudsonBuildNumber"); //$NON-NLS-1$
 		final boolean closeNexusStage = httpParams.containsKey("closeNexusStage"); //$NON-NLS-1$
 		final String repoDescription = closeNexusStage ? getString("repoDescription", httpParams) : ""; //$NON-NLS-1$
 		final boolean specifyScmCredentials = httpParams.containsKey("specifyScmCredentials"); //$NON-NLS-1$
