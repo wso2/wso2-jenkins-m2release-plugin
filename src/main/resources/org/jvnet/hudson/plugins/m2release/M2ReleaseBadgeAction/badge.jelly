@@ -1,6 +1,6 @@
 <j:jelly xmlns:j="jelly:core">
     <j:choose>
-        <j:when test="${it.isFailedRelease()}">
+        <j:when test="${it.isFailedBuild()}">
             <img width="16" height="16" title="${it.tooltipText}" src="${rootURL}/plugin/m2release/img/releasebadge-failure.png"/>
         </j:when>
         <j:when test="${it.isDryRun()}">

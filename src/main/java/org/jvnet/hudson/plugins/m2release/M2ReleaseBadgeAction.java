@@ -31,7 +31,7 @@ import jenkins.model.RunAction2;
 
 /**
  * The M2ReleaseBadgeAction displays a small icon next to any release build in the build history.
- *
+ * 
  * <p>
  * This object also remembers the release in a machine readable form so that
  * other plugins can introspect that the release has happened.
@@ -41,12 +41,32 @@ import jenkins.model.RunAction2;
  */
 public class M2ReleaseBadgeAction implements BuildBadgeAction, RunAction2 {
 
-	private transient Run run;
+	private transient Run<?, ?> run;
+
+	@Deprecated
+	private transient String tooltipText; // kept for backwards compatibility (very old versions of plugin)
+
+	@Deprecated
+	private transient Boolean isDryRun; // kept for backwards compatibility
+
+	/**
+	 * Version number that was released.
+	 */
+	@Deprecated
+	private transient String versionNumber; // kept for backwards compatibility
 
 	/**
 	 * Construct a new BadgeIcon to a Maven release build.
 	 */
 	public M2ReleaseBadgeAction() {
+	}
+
+	public Object readResolve() {
+		// try to recover versionNumber from tooltipText (for builds by very old versions of the plugin)
+		if (versionNumber == null && tooltipText != null && tooltipText.startsWith("Release - ")) {
+			versionNumber = tooltipText.substring("Release - ".length());
+		}
+		return this;
 	}
 
 	/**
@@ -82,7 +102,7 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction, RunAction2 {
 	public String getTooltipText() {
 		StringBuilder str = new StringBuilder();
 
-		if (isFailedRelease()) {
+		if (isFailedBuild()) {
 			str.append("Failed release");
 		} else {
 			str.append("Release");
@@ -100,30 +120,44 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction, RunAction2 {
 	 * Gets the version number that was released.
 	 */
 	public String getVersionNumber() {
+		if (versionNumber != null) {
+			return versionNumber;
+		}
 		M2ReleaseArgumentsAction args = run.getAction(M2ReleaseArgumentsAction.class);
-		return args.getReleaseVersion();
+		if (args != null) {
+			return args.getReleaseVersion();
+		} else { // builds by old versions of the plugin
+			return null;
+		}
 	}
 
 	/**
 	 * Returns if the release was a dryRun or not.
 	 */
 	public boolean isDryRun() {
+		if (isDryRun != null) {
+			return isDryRun;
+		}
 		M2ReleaseArgumentsAction args = run.getAction(M2ReleaseArgumentsAction.class);
-		return args.isDryRun();
+		if (args != null) {
+			return args.isDryRun();
+		} else {  // builds by old versions of the plugin
+			return false; // we don't know
+		}
 	}
 
 	/**
-	 * Returns <code>true</code> if building the release failed.
+	 * Returns <code>true</code> if the release build job failed.
 	 */
-    public boolean isFailedRelease() {
-    	return !isSuccessfulBuild(run);
-    }
+	public boolean isFailedBuild() {
+		return !isSuccessfulBuild(run);
+	}
 
-	private boolean isSuccessfulBuild(Run run) {
+	private boolean isSuccessfulBuild(Run<?, ?> run) {
 		Result result = run.getResult();
 		if (result != null) {
 			return result.isBetterOrEqualTo(Result.SUCCESS);
-		} else { // build is still in progress
+		} else { // build is not yet initiated
 			return true;
 		}
 	}

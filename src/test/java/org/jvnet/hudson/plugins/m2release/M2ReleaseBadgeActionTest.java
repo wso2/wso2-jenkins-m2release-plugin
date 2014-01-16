@@ -23,9 +23,15 @@
  */
 package org.jvnet.hudson.plugins.m2release;
 
+import java.io.IOException;
+
+import hudson.Launcher;
 import hudson.maven.MavenModuleSet;
 import hudson.maven.MavenModuleSetBuild;
+import hudson.model.BuildListener;
 import hudson.model.Result;
+import hudson.model.AbstractBuild;
+import hudson.tasks.Builder;
 import hudson.tasks.Maven.MavenInstallation;
 
 import org.jvnet.hudson.plugins.m2release.M2ReleaseBuildWrapper.DescriptorImpl;
@@ -40,7 +46,7 @@ public class M2ReleaseBadgeActionTest extends HudsonTestCase {
 				runDryRunRelease("maven2-project.zip", "pom.xml", mavenInstallation, Result.SUCCESS);
 		M2ReleaseBadgeAction badge = build.getAction(M2ReleaseBadgeAction.class);
 		assertTrue("Badge is not marked as dryRun", badge.isDryRun());
-		assertFalse("Badge should not have been marked as failed release", badge.isFailedRelease());
+		assertFalse("Badge should not have been marked as failed release", badge.isFailedBuild());
 		assertEquals("1.0", badge.getVersionNumber());
 	}
 
@@ -50,12 +56,34 @@ public class M2ReleaseBadgeActionTest extends HudsonTestCase {
 				runDryRunRelease("maven3-failing-project.zip", "pom.xml", mavenInstallation, Result.FAILURE);
 		M2ReleaseBadgeAction badge = build.getAction(M2ReleaseBadgeAction.class);
 		assertTrue("Badge is not marked as dryRun", badge.isDryRun());
-		assertTrue("Badge should have been marked as failed release", badge.isFailedRelease());
+		assertTrue("Badge should have been marked as failed release", badge.isFailedBuild());
 		assertEquals("1.0", badge.getVersionNumber());
+	}
+
+	public void testBadgeForFailedPostBuildStepRelease() throws Exception {
+		MavenInstallation mavenInstallation = configureMaven3();
+		final MavenModuleSetBuild build =
+				runDryRunReleaseWithFailingPostStep("maven3-failing-project.zip", "pom.xml", mavenInstallation, Result.FAILURE);
+		M2ReleaseBadgeAction badge = build.getAction(M2ReleaseBadgeAction.class);
+		assertTrue("Badge should have been marked as failed release", badge.isFailedBuild());
+        assertEquals("1.0", badge.getVersionNumber());
 	}
 
 	private MavenModuleSetBuild runDryRunRelease(String projectZip, String unpackedPom,
 					MavenInstallation mavenInstallation, Result expectedResult)
+			throws Exception {
+		return runDryRunRelease(projectZip, unpackedPom, mavenInstallation, expectedResult, null);
+	}
+
+	private MavenModuleSetBuild runDryRunReleaseWithFailingPostStep(String projectZip, String unpackedPom,
+					MavenInstallation mavenInstallation, Result expectedResult)
+			throws Exception {
+		Builder failingPostStep = new FailingBuilder();
+		return runDryRunRelease(projectZip, unpackedPom, mavenInstallation, expectedResult, failingPostStep);
+	}
+
+	private MavenModuleSetBuild runDryRunRelease(String projectZip, String unpackedPom,
+					MavenInstallation mavenInstallation, Result expectedResult, Builder postStepBuilder)
 			throws Exception {
 		MavenModuleSet m = createMavenProject();
 		m.setRootPOM(unpackedPom);
@@ -73,6 +101,18 @@ public class M2ReleaseBadgeActionTest extends HudsonTestCase {
 		args.setDryRun(true);
 		m.getBuildWrappersList().add(wrapper);
 		
+		if (postStepBuilder != null) {
+			m.getPostbuilders().add(postStepBuilder);
+		}
+		
 		return assertBuildStatus(expectedResult, m.scheduleBuild2(0, new ReleaseCause(), args).get());
+	}
+	
+	private static class FailingBuilder extends Builder {
+		@Override
+		public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener)
+				throws InterruptedException, IOException {
+			return false; // failing build
+		}
 	}
 }
