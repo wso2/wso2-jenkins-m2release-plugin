@@ -7,6 +7,7 @@ import hudson.plugins.view.dashboard.DashboardPortlet;
 import hudson.tasks.Mailer;
 import hudson.util.RunList;
 import org.jvnet.hudson.plugins.m2release.M2ReleaseBadgeAction;
+import org.jvnet.hudson.plugins.m2release.ReleaseCause;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
@@ -150,8 +151,8 @@ public class RecentReleasesPortlet extends DashboardPortlet {
             // and report rss entry as user who kicked off build
             List<Cause> causes = entry.getCauses();
             for (Cause cause : causes) {
-                if (cause instanceof Cause.UserCause) {
-                    return User.get(((Cause.UserCause) cause).getUserName()).getFullName();
+                if (cause instanceof ReleaseCause) {
+                    return ((ReleaseCause) cause).getUserName();
                 }
             }
 
