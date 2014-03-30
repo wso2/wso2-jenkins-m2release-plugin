@@ -25,43 +25,45 @@
 package org.jvnet.hudson.plugins.m2release;
 
 import hudson.model.BuildBadgeAction;
+import hudson.model.Result;
+import hudson.model.Run;
+import jenkins.model.RunAction2;
 
 /**
- * The M2ReleaseBadgeAction displays a small icon next to any release builds in the build history.
- *
+ * The M2ReleaseBadgeAction displays a small icon next to any release build in the build history.
+ * 
  * <p>
  * This object also remembers the release in a machine readable form so that
- * other plugins can introspect that the release had happened.
+ * other plugins can introspect that the release has happened.
  * 
  * @author domi
  * @author teilo
  */
-public class M2ReleaseBadgeAction implements BuildBadgeAction {
+public class M2ReleaseBadgeAction implements BuildBadgeAction, RunAction2 {
 
-	/** The tooltip text displayed to the user with the badge. */
-	private transient String tooltipText;
-	
-	private boolean isDryRun;
+	private transient Run<?, ?> run;
+
+	@Deprecated
+	private transient String tooltipText; // kept for backwards compatibility (very old versions of plugin)
+
+	@Deprecated
+	private transient Boolean isDryRun; // kept for backwards compatibility
 
 	/**
 	 * Version number that was released.
 	 */
-	private String versionNumber;
+	@Deprecated
+	private transient String versionNumber; // kept for backwards compatibility
 
 	/**
 	 * Construct a new BadgeIcon to a Maven release build.
-	 * 
-	 * @param tooltipText
-	 *        the tool tip text that should be displayed with the badge.
 	 */
-	public M2ReleaseBadgeAction(String versionNumber, boolean isDryRun) {
-		this.versionNumber = versionNumber;
-		this.isDryRun = isDryRun;
+	public M2ReleaseBadgeAction() {
 	}
 
 	public Object readResolve() {
-		// try to recover versionNumber from tooltipText
-		if (versionNumber == null && tooltipText.startsWith("Release - ")) {
+		// try to recover versionNumber from tooltipText (for builds by very old versions of the plugin)
+		if (versionNumber == null && tooltipText != null && tooltipText.startsWith("Release - ")) {
 			versionNumber = tooltipText.substring("Release - ".length());
 		}
 		return this;
@@ -95,23 +97,76 @@ public class M2ReleaseBadgeAction implements BuildBadgeAction {
 	}
 
 	/**
-	 * Gets the tool tip text that should be displayed to the user.
+	 * Gets the tooltip text that should be displayed to the user.
 	 */
 	public String getTooltipText() {
-		return isDryRun ?  "Release (dryRun) - " + versionNumber : "Release - " + versionNumber;
+		StringBuilder str = new StringBuilder();
+
+		if (isFailedBuild()) {
+			str.append("Failed release");
+		} else {
+			str.append("Release");
+		}
+		if (isDryRun()) {
+			str.append(" (dryRun)");
+		}
+		str.append(" - ");
+		str.append(getVersionNumber());
+
+		return str.toString();
 	}
 
 	/**
 	 * Gets the version number that was released.
-	 * 
-	 * @return Can be <code>null</code> if we are dealing with very legacy data
-	 *         that doesn't contain this information.
 	 */
 	public String getVersionNumber() {
-		return versionNumber;
+		if (versionNumber != null) {
+			return versionNumber;
+		}
+		M2ReleaseArgumentsAction args = run.getAction(M2ReleaseArgumentsAction.class);
+		if (args != null) {
+			return args.getReleaseVersion();
+		} else { // builds by old versions of the plugin
+			return null;
+		}
 	}
 
+	/**
+	 * Returns if the release was a dryRun or not.
+	 */
 	public boolean isDryRun() {
-		return isDryRun;
+		if (isDryRun != null) {
+			return isDryRun;
+		}
+		M2ReleaseArgumentsAction args = run.getAction(M2ReleaseArgumentsAction.class);
+		if (args != null) {
+			return args.isDryRun();
+		} else {  // builds by old versions of the plugin
+			return false; // we don't know
+		}
+	}
+
+	/**
+	 * Returns <code>true</code> if the release build job failed.
+	 */
+	public boolean isFailedBuild() {
+		return !isSuccessfulBuild(run);
+	}
+
+	private boolean isSuccessfulBuild(Run<?, ?> run) {
+		Result result = run.getResult();
+		if (result != null) {
+			return result.isBetterOrEqualTo(Result.SUCCESS);
+		} else { // build is not yet initiated
+			return true;
+		}
+	}
+
+	public void onAttached(Run<?, ?> run) {
+		this.run = run;
+	}
+
+	public void onLoad(Run<?, ?> run) {
+		this.run = run;
 	}
 }
