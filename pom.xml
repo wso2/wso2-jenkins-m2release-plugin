@@ -135,6 +135,10 @@
 				<version>1.96</version>
 				<extensions>true</extensions>
 			</plugin>
+            <plugin>
+              <artifactId>maven-release-plugin</artifactId>
+              <version>2.5</version>
+            </plugin>            
 		</plugins>
 	</build>
 
