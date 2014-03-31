@@ -39,7 +39,7 @@
 
 	<scm>
 		<connection>scm:git:git://github.com/jenkinsci/m2release-plugin.git</connection>
-		<developerConnection>scm:git:https://github.com/jenkinsci/m2release-plugin.git</developerConnection>
+        <developerConnection>scm:git:git@github.com:jenkinsci/m2release-plugin.git</developerConnection>
 		<url>https://github.com/jenkinsci/m2release-plugin/</url>
 	</scm>
 
