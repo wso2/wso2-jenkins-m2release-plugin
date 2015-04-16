@@ -50,6 +50,7 @@ import javax.servlet.ServletException;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
+import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.lang.StringUtils;
 import org.apache.maven.shared.release.versions.DefaultVersionInfo;
 import org.apache.maven.shared.release.versions.VersionParseException;
@@ -153,8 +154,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 				DefaultVersionInfo dvi = new DefaultVersionInfo(rootModule.getVersion());
 				version = dvi.getReleaseVersionString();
 			} catch (VersionParseException vpEx) {
-				Logger logger = Logger.getLogger(this.getClass().getName());
-				logger.log(Level.WARNING, "Failed to compute next version.", vpEx);
+				LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
 				version = rootModule.getVersion().replace("-SNAPSHOT", "");
 			}
 		}
@@ -187,8 +187,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 				DefaultVersionInfo dvi = new DefaultVersionInfo(rootModule.getVersion());
 				version = dvi.getNextVersion().getSnapshotVersionString();
 			} catch (Exception vpEx) {
-				Logger logger = Logger.getLogger(this.getClass().getName());
-				logger.log(Level.WARNING, "Failed to compute next version.", vpEx);
+				LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
 			}
 		}
 		return version;
@@ -205,23 +204,23 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		// JSON collapses everything in the dynamic specifyVersions section so
 		// we need to fall back to
 		// good old http...
-		Map<?, ?> httpParams = req.getParameterMap();
+		StaplerRequestWrapper requestWrapper = new StaplerRequestWrapper(req);
 
-		final boolean closeNexusStage = httpParams.containsKey("closeNexusStage"); //$NON-NLS-1$
-		final String repoDescription = closeNexusStage ? getString("repoDescription", httpParams) : ""; //$NON-NLS-1$
-		final boolean specifyScmCredentials = httpParams.containsKey("specifyScmCredentials"); //$NON-NLS-1$
-		final String scmUsername = specifyScmCredentials ? getString("scmUsername", httpParams) : null; //$NON-NLS-1$
-		final String scmPassword = specifyScmCredentials ? getString("scmPassword", httpParams) : null; //$NON-NLS-1$
-		final boolean specifyScmCommentPrefix = httpParams.containsKey("specifyScmCommentPrefix"); //$NON-NLS-1$
-		final String scmCommentPrefix = specifyScmCommentPrefix ? getString("scmCommentPrefix", httpParams) : null; //$NON-NLS-1$
-		final boolean specifyScmTag = httpParams.containsKey("specifyScmTag"); //$NON-NLS-1$
-		final String scmTag = specifyScmTag ? getString("scmTag", httpParams) : null; //$NON-NLS-1$
+		final boolean closeNexusStage = requestWrapper.containsKey("closeNexusStage"); //$NON-NLS-1$
+		final String repoDescription = closeNexusStage ? requestWrapper.getString("repoDescription") : ""; //$NON-NLS-1$
+		final boolean specifyScmCredentials = requestWrapper.containsKey("specifyScmCredentials"); //$NON-NLS-1$
+		final String scmUsername = specifyScmCredentials ? requestWrapper.getString("scmUsername") : null; //$NON-NLS-1$
+		final String scmPassword = specifyScmCredentials ? requestWrapper.getString("scmPassword") : null; //$NON-NLS-1$
+		final boolean specifyScmCommentPrefix = requestWrapper.containsKey("specifyScmCommentPrefix"); //$NON-NLS-1$
+		final String scmCommentPrefix = specifyScmCommentPrefix ? requestWrapper.getString("scmCommentPrefix") : null; //$NON-NLS-1$
+		final boolean specifyScmTag = requestWrapper.containsKey("specifyScmTag"); //$NON-NLS-1$
+		final String scmTag = specifyScmTag ? requestWrapper.getString("scmTag") : null; //$NON-NLS-1$
 
-		final boolean appendHusonUserName = specifyScmCommentPrefix && httpParams.containsKey("appendHudsonUserName"); //$NON-NLS-1$
-		final boolean isDryRun = httpParams.containsKey("isDryRun"); //$NON-NLS-1$
+		final boolean appendHusonUserName = specifyScmCommentPrefix && requestWrapper.containsKey("appendHudsonUserName"); //$NON-NLS-1$
+		final boolean isDryRun = requestWrapper.containsKey("isDryRun"); //$NON-NLS-1$
 
-		final String releaseVersion = getString("releaseVersion", httpParams); //$NON-NLS-1$
-		final String developmentVersion = getString("developmentVersion", httpParams); //$NON-NLS-1$
+		final String releaseVersion = requestWrapper.getString("releaseVersion"); //$NON-NLS-1$
+		final String developmentVersion = requestWrapper.getString("developmentVersion"); //$NON-NLS-1$
 
 		// TODO make this nicer by showing a html error page.
 		// this will throw an exception so control will terminate if the dev
@@ -307,15 +306,87 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	}
 
 	/**
-	 * returns the value of the key as a String. if multiple values have been
-	 * submitted, the first one will be returned.
-	 * 
-	 * @param key
-	 * @param httpParams
-	 * @return
+	 * Wrapper to access request data with a special treatment if POST is multipart encoded
 	 */
-	private String getString(String key, Map<?, ?> httpParams) {
-		return (String) (((Object[]) httpParams.get(key))[0]);
+	static class StaplerRequestWrapper {
+		private final StaplerRequest request;
+		private Map<String, FileItem> parsedFormData;
+		private boolean isMultipartEncoded;
+
+		public StaplerRequestWrapper(StaplerRequest request) throws ServletException {
+			this.request = request;
+
+			// JENKINS-16043, POST can be multipart encoded if there's a file parameter in the job
+			String ct = request.getContentType();
+			if (ct != null && ct.startsWith("multipart/")) {
+				// as multipart content can only be read once, we can't read it here, otherwise it would
+				// break request.getSubmittedForm(). So, we get it using reflection by reading private
+				// field parsedFormData
+
+				// ensure parsedFormData field is filled
+				request.getSubmittedForm();
+
+				try {
+					java.lang.reflect.Field privateField = org.kohsuke.stapler.RequestImpl.class.getDeclaredField("parsedFormData");
+					privateField.setAccessible(true);
+					parsedFormData = (Map<String, FileItem>) privateField.get(request);
+				} catch (NoSuchFieldException e) {
+					throw new IllegalArgumentException(e);
+				} catch (IllegalAccessException e) {
+					throw new IllegalArgumentException(e);
+				}
+
+				isMultipartEncoded = true;
+			} else {
+				isMultipartEncoded = false;
+			}
+		}
+
+		/**
+		 * returns the value of the key as a String. if multiple values have been
+		 * submitted, the first one will be returned.
+		 *
+		 * @param key
+		 * @return
+		 */
+		private String getString(String key) throws javax.servlet.ServletException, java.io.IOException {
+			if (isMultipartEncoded) {
+				// borrowed from org.kohsuke.staple.RequestImpl
+				FileItem item = parsedFormData.get(key);
+				if (item!=null && item.isFormField()) {
+					if (item.getContentType() == null && request.getCharacterEncoding() != null) {
+						// JENKINS-11543: If client doesn't set charset per part, use request encoding
+						try {
+							return item.getString(request.getCharacterEncoding());
+						} catch (java.io.UnsupportedEncodingException uee) {
+							LOGGER.log(Level.WARNING, "Request has unsupported charset, using default for '"+key+"' parameter", uee);
+							return item.getString();
+						}
+					} else {
+						return item.getString();
+					}
+				} else {
+					throw new IllegalArgumentException("Parameter not found: " + key);
+				}
+			} else {
+				return (String) (((Object[]) request.getParameterMap().get(key))[0]);
+			}
+		}
+
+		/**
+		 * returns true if request contains key
+		 *
+		 * @param key parameter name
+		 * @return
+		 */
+		private boolean containsKey(String key) throws javax.servlet.ServletException, java.io.IOException {
+			// JENKINS-16043, POST can be multipart encoded if there's a file parameter in the job
+			if (isMultipartEncoded) {
+				return parsedFormData.containsKey(key);
+			} else {
+				return request.getParameterMap().containsKey(key);
+			}
+		}
 	}
 
 	/**
@@ -333,4 +404,6 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	}
 
 	private static final List<Permalink> PERMALINKS = Collections.singletonList(LastReleasePermalink.INSTANCE);
+
+	private static final Logger LOGGER = Logger.getLogger(M2ReleaseAction.class.getName());
 }
