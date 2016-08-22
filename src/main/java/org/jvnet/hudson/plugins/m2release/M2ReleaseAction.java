@@ -25,17 +25,27 @@ package org.jvnet.hudson.plugins.m2release;
 
 import hudson.maven.MavenModule;
 import hudson.maven.MavenModuleSet;
-import hudson.model.ParameterValue;
+import hudson.maven.ModuleName;
 import hudson.model.BooleanParameterValue;
 import hudson.model.Hudson;
 import hudson.model.ParameterDefinition;
+import hudson.model.ParameterValue;
 import hudson.model.ParametersAction;
 import hudson.model.ParametersDefinitionProperty;
 import hudson.model.PasswordParameterValue;
 import hudson.model.PermalinkProjectAction;
 import hudson.model.StringParameterValue;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.lang.StringUtils;
+import org.apache.maven.shared.release.versions.DefaultVersionInfo;
+import org.apache.maven.shared.release.versions.VersionParseException;
+import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerResponse;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -44,18 +54,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.servlet.ServletException;
-
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.lang.StringUtils;
-import org.apache.maven.shared.release.versions.DefaultVersionInfo;
-import org.apache.maven.shared.release.versions.VersionParseException;
-import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.StaplerResponse;
 
 /**
  * The action appears as the link in the side bar that users will click on in
@@ -147,49 +146,84 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	}
 
 	public String computeReleaseVersion() {
-		String version = "NaN";
+		return computeReleaseVersion("NaN");
+	}
+
+	public String computeReleaseVersion(String rootPomVersion) {
+		String version;
 		final MavenModule rootModule = getRootModule();
-		if (rootModule != null && StringUtils.isNotBlank(rootModule.getVersion())) {
-			try {
-				DefaultVersionInfo dvi = new DefaultVersionInfo(rootModule.getVersion());
-				version = dvi.getReleaseVersionString();
-			} catch (VersionParseException vpEx) {
-				LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
-				version = rootModule.getVersion().replace("-SNAPSHOT", "");
-			}
+		if (rootPomVersion == null && rootModule != null && StringUtils.isNotBlank(rootModule.getVersion())) {
+			rootPomVersion = rootModule.getVersion();
 		}
+
+		if (rootPomVersion == null){
+			throw new IllegalArgumentException("Cannot proceed with release. Pom version cannot be determined");
+		}
+
+		try {
+			DefaultVersionInfo dvi = new DefaultVersionInfo(rootPomVersion);
+			version = dvi.getReleaseVersionString();
+		} catch (VersionParseException vpEx) {
+			LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
+			version = rootPomVersion.replace("-SNAPSHOT", "");
+		}
+
 		return version;
 	}
 
 	public String computeRepoDescription() {
-		StringBuilder sb = new StringBuilder();
-		sb.append(project.getRootModule().getName());
-		sb.append(':');
-		sb.append(computeReleaseVersion());
-		return sb.toString();
+
+		MavenModule mavenModule = project.getRootModule();
+		String moduleName;
+		if (mavenModule == null) {
+			try {
+				Field field = project.getClass().getDeclaredField("rootModule");
+				field.setAccessible(true);
+				moduleName = field.get(project).toString();
+			} catch (NoSuchFieldException e) {
+				return "";
+			} catch (IllegalAccessException e) {
+				return "";
+			}
+		} else {
+			moduleName = mavenModule.getName();
+		}
+		return moduleName + ':' + computeReleaseVersion("");
 	}
 
+	public static final String DEFAULT_SCM_TAG_PREFIX = "v";
+
 	public String computeScmTag() {
-		// maven default is artifact-version
-		String artifactId = getRootModule() == null ? "M2RELEASE-TAG" : getRootModule().getModuleName().artifactId;
-		StringBuilder sb = new StringBuilder();
-		sb.append(artifactId);
-		sb.append('-');
-		sb.append(computeReleaseVersion());
-		return sb.toString();
+		// maven default is artifact-version. WSO2 uses v<version>
+		return computeNextVersion(computeReleaseVersion("NaN"));
+	}
+
+	public String computeScmTag(String rootPomVersion) {
+		return DEFAULT_SCM_TAG_PREFIX + computeReleaseVersion(rootPomVersion);
 	}
 
 	public String computeNextVersion() {
+		return computeNextVersion("NaN-SNAPSHOT");
+	}
+
+	public String computeNextVersion(String rootPomVersion) {
 		String version = "NaN-SNAPSHOT";
 		final MavenModule rootModule = getRootModule();
-		if (rootModule != null && StringUtils.isNotBlank(rootModule.getVersion())) {
-			try {
-				DefaultVersionInfo dvi = new DefaultVersionInfo(rootModule.getVersion());
-				version = dvi.getNextVersion().getSnapshotVersionString();
-			} catch (Exception vpEx) {
-				LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
-			}
+		if (rootPomVersion == null && rootModule != null && StringUtils.isNotBlank(rootModule.getVersion())) {
+			rootPomVersion = rootModule.getVersion();
 		}
+
+		if (rootPomVersion == null){
+			throw new IllegalArgumentException("Cannot proceed with release. Pom version cannot be determined");
+		}
+
+		try {
+			DefaultVersionInfo dvi = new DefaultVersionInfo(rootPomVersion);
+			version = dvi.getNextVersion().getSnapshotVersionString();
+		} catch (Exception vpEx) {
+			LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
+		}
+
 		return version;
 	}
 

@@ -24,6 +24,7 @@
 package org.jvnet.hudson.plugins.m2release;
 
 import hudson.Extension;
+import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Util;
 import hudson.maven.AbstractMavenProject;
@@ -31,36 +32,25 @@ import hudson.maven.MavenBuild;
 import hudson.maven.MavenModule;
 import hudson.maven.MavenModuleSet;
 import hudson.maven.MavenModuleSetBuild;
-import hudson.model.Action;
-import hudson.model.BuildListener;
-import hudson.model.Result;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
+import hudson.model.Action;
+import hudson.model.BuildListener;
 import hudson.model.Descriptor;
 import hudson.model.Hudson;
 import hudson.model.Item;
+import hudson.model.Result;
 import hudson.model.Run;
+import hudson.remoting.VirtualChannel;
 import hudson.security.Permission;
 import hudson.security.PermissionGroup;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tasks.Builder;
+import hudson.triggers.TimerTrigger;
 import hudson.util.FormValidation;
 import hudson.util.RunList;
-
-import java.io.IOException;
-import java.lang.reflect.Array;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.Map;
-
-import javax.servlet.ServletException;
-
 import net.sf.json.JSONObject;
-
 import org.apache.commons.lang.StringUtils;
 import org.jvnet.hudson.plugins.m2release.nexus.Stage;
 import org.jvnet.hudson.plugins.m2release.nexus.StageClient;
@@ -71,6 +61,26 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
+
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Map;
+import javax.servlet.ServletException;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 
 /**
  * Wraps a {@link MavenBuild} to be able to run the <a
@@ -86,7 +96,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	
 	
 	private transient Logger log = LoggerFactory.getLogger(M2ReleaseBuildWrapper.class);
-	
+
 	/** For backwards compatibility with older configurations. @deprecated */
 	@Deprecated
 	public transient boolean              defaultVersioningMode;
@@ -122,7 +132,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	                                                                                              throws IOException,
 	                                                                                              InterruptedException {
 
-		if (!isReleaseBuild(build)) {
+		if (!isReleaseBuild(build) && !isTriggeredByTimer(build)) {
+			log.debug("Build trigger causes: {} ", build.getCauses());
 			// we are not performing a release so don't need a custom tearDown.
 			return new Environment() {
 				/** intentionally blank */
@@ -137,7 +148,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 		
 		// we are a release build
+		listener.getLogger().println("Triggering a release build. Cause : " + build.getCauses());
 		M2ReleaseArgumentsAction args = build.getAction(M2ReleaseArgumentsAction.class);
+		args = populateMissingArguments(args, build, launcher, listener);
 		StringBuilder buildGoals = new StringBuilder();
 
 		buildGoals.append("-DdevelopmentVersion=").append(args.getDevelopmentVersion()).append(' ');
@@ -287,7 +300,132 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		};
 	}
 
-	
+	public static final String DEFAULT_SCM_TAG_SUFFIX = "[WSO2 Release]";
+
+	/**
+	 * If the release build is triggered via a time trigger, the arguments will
+	 * not be populated.
+	 *
+	 * @param build
+	 * @param arguments
+	 * @param launcher
+	 * @param listener
+	 */
+	private M2ReleaseArgumentsAction populateMissingArguments(M2ReleaseArgumentsAction arguments, AbstractBuild build,
+			Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+		if (arguments == null) {
+			arguments = new M2ReleaseArgumentsAction();
+			build.addAction(arguments);
+		}
+
+		String nextDevelopmentVersion = arguments.getDevelopmentVersion();
+		if (nextDevelopmentVersion != null && !nextDevelopmentVersion.isEmpty()) {
+			return arguments;
+		}
+
+		MavenModuleSet mms = getModuleSet(build);
+		MavenModule rootModule = mms.getRootModule();
+
+		String rootPomVersion = null;
+//		if (rootModule != null) {
+//			rootPomVersion = rootModule.getVersion();
+//		} else {
+			try {
+				listener.getLogger().println("[M2Release] Root Module information not found. "
+						+ "Calculating the version by processing the root pom.xml");
+				FilePath path = new FilePath(build.getWorkspace(), "pom.xml");
+				rootPomVersion = path.act(new PomVersionReader());
+			} catch (IOException e) {
+				listener.getLogger().println("[M2Release] Error reading version from pom.xml. " + e.getMessage());
+				e.printStackTrace(listener.getLogger());
+				throw e;
+			} catch (InterruptedException e) {
+				listener.getLogger().println("[M2Release] Error reading version from pom.xml. " + e.getMessage());
+				e.printStackTrace(listener.getLogger());
+				throw e;
+			}
+//		}
+
+		M2ReleaseAction m2ReleaseAction = new M2ReleaseAction(mms, false, false, false);
+		nextDevelopmentVersion = m2ReleaseAction.computeNextVersion(rootPomVersion);
+		String releaseVersion = m2ReleaseAction.computeReleaseVersion(rootPomVersion);
+		String scmTag = m2ReleaseAction.computeScmTag(rootPomVersion);
+
+		String scmCommentPrefix = DEFAULT_SCM_TAG_SUFFIX;
+
+		//todo do version number Validations - the version format and already existing tags
+
+		if (m2ReleaseAction.isNexusSupportEnabled()) {
+			String nexusStagingDescription = m2ReleaseAction.computeRepoDescription();
+			arguments.setCloseNexusStage(m2ReleaseAction.isNexusSupportEnabled());
+			arguments.setRepoDescription(nexusStagingDescription);
+
+			//todo release nexus staging config
+		}
+
+		listener.getLogger().println("[M2Release] Release Metadata: ");
+		listener.getLogger().println("[M2Release]  Current POM Version: " + rootPomVersion);
+		listener.getLogger().println("[M2Release]  Release Version: " + releaseVersion);
+		listener.getLogger().println("[M2Release]  SCM Tag Name: " + scmTag);
+		listener.getLogger().println("[M2Release]  Next Development Version: " + nextDevelopmentVersion);
+		listener.getLogger().println(
+				"[M2Release]  Close Nexus Staging? " + m2ReleaseAction.isNexusSupportEnabled()); //global config
+
+		arguments.setReleaseVersion(releaseVersion);
+		arguments.setDevelopmentVersion(nextDevelopmentVersion);
+		// TODO - re-implement versions on specific modules.
+
+		//arguments.setScmUsername(scmUsername);
+		//arguments.setScmPassword(scmPassword);
+		arguments.setScmTagName(scmTag);
+		arguments.setScmCommentPrefix(scmCommentPrefix);
+		arguments.setAppendHusonUserName(false);
+		arguments.setHudsonUserName(Hudson.getAuthentication().getName());
+
+		return arguments;
+	}
+
+	/**
+	 * Manually read the pom version if the Jenkins rootModule is not available.
+	 * This reads the pom file transparent from the actual remote slave.
+	 */
+	private static class PomVersionReader implements FilePath.FileCallable<String> {
+		private static final long serialVersionUID = 1L;
+
+		/**
+		 * Manually read the pom version if the Jenkins rootModule is not available.
+		 */
+		public String invoke(File file, VirtualChannel channel) throws IOException, InterruptedException {
+			String version = "NaN";
+			try {
+				if (file.isFile()) {
+					DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+					DocumentBuilder db = dbf.newDocumentBuilder();
+					Document doc = db.parse(file);
+
+					XPath xPath = XPathFactory.newInstance().newXPath();
+					version = (String) xPath
+							.evaluate("/project/version/text()", doc.getDocumentElement(), XPathConstants.STRING);
+
+					if (version == null || version.isEmpty()) {
+						version = (String) xPath.evaluate("/project/parent/version/text()", doc.getDocumentElement(),
+								XPathConstants.STRING);
+					}
+					return version;
+
+				}
+			} catch (ParserConfigurationException e) {
+				throw new IOException(e.getMessage(), e);
+			} catch (SAXException e) {
+				throw new IOException(e.getMessage(), e);
+			} catch (XPathExpressionException e) {
+				throw new IOException(e.getMessage(), e);
+			}
+			return version;
+		}
+
+	}
+
 	public boolean isSelectCustomScmCommentPrefix() {
 		return selectCustomScmCommentPrefix;
 	}
@@ -368,6 +506,15 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return (build.getCause(ReleaseCause.class) != null);
 	}
 
+	/**
+	 * Releases should happen nightly
+	 *
+	 * @param build
+	 * @return
+	 */
+	private boolean isTriggeredByTimer(AbstractBuild build) {
+		return (build.getCause(TimerTrigger.TimerTriggerCause.class) != null);
+	}
 
 	/** Recreate the logger on de-serialisation. */
 	private Object readResolve() {
