@@ -25,7 +25,7 @@ package org.jvnet.hudson.plugins.m2release;
 
 import hudson.maven.MavenModule;
 import hudson.maven.MavenModuleSet;
-import hudson.maven.ModuleName;
+import hudson.model.AbstractBuild;
 import hudson.model.BooleanParameterValue;
 import hudson.model.Hudson;
 import hudson.model.ParameterDefinition;
@@ -172,6 +172,16 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	}
 
 	public String computeRepoDescription() {
+		return computeRepoDescription(null, computeReleaseVersion(""), "-");
+	}
+
+	/* START WSO2 CHANGES */
+	public String computeRepoDescription(AbstractBuild build, String releaseVersion, String scmTag) {
+
+		String ls = System.getProperty("line.separator");
+		String url = build != null ? build.getAbsoluteUrl() : "-";
+		StringBuilder descriptionBuilder = new StringBuilder();
+		descriptionBuilder.append("Jenkins build: ").append(url);  //deprecated only for html rendering
 
 		MavenModule mavenModule = project.getRootModule();
 		String moduleName;
@@ -181,14 +191,18 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 				field.setAccessible(true);
 				moduleName = field.get(project).toString();
 			} catch (NoSuchFieldException e) {
-				return "";
+				return descriptionBuilder.toString();
 			} catch (IllegalAccessException e) {
-				return "";
+				return descriptionBuilder.toString();
 			}
 		} else {
 			moduleName = mavenModule.getName();
 		}
-		return moduleName + ':' + computeReleaseVersion("");
+		descriptionBuilder.append(ls).append(" - Git Tag: ").append(scmTag).append(ls).
+				append(" - Release version: ").append(releaseVersion).append(ls).
+				append(" - Maven Info: ").append(moduleName);
+
+		return descriptionBuilder.toString();
 	}
 
 	public static final String DEFAULT_SCM_TAG_PREFIX = "v";
@@ -226,6 +240,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 
 		return version;
 	}
+	/* END WSO2 CHANGES */
 
 	public boolean isNexusSupportEnabled() {
 		return project.getBuildWrappersList().get(M2ReleaseBuildWrapper.class).getDescriptor().isNexusSupport();

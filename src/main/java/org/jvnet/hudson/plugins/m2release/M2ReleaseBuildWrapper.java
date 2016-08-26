@@ -47,10 +47,12 @@ import hudson.security.PermissionGroup;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tasks.Builder;
+import hudson.triggers.SCMTrigger;
 import hudson.triggers.TimerTrigger;
 import hudson.util.FormValidation;
 import hudson.util.RunList;
 import net.sf.json.JSONObject;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.jvnet.hudson.plugins.m2release.nexus.Stage;
 import org.jvnet.hudson.plugins.m2release.nexus.StageClient;
@@ -72,7 +74,10 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.servlet.ServletException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -93,8 +98,8 @@ import javax.xml.xpath.XPathFactory;
  * @since 0.1
  */
 public class M2ReleaseBuildWrapper extends BuildWrapper {
-	
-	
+
+	private static final String GITHUB_PUSH_CAUSE = "com.cloudbees.jenkins.GitHubPushCause";
 	private transient Logger log = LoggerFactory.getLogger(M2ReleaseBuildWrapper.class);
 
 	/** For backwards compatibility with older configurations. @deprecated */
@@ -132,7 +137,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	                                                                                              throws IOException,
 	                                                                                              InterruptedException {
 
-		if (!isReleaseBuild(build) && !isTriggeredByTimer(build)) {
+		if (!isReleaseBuild(build) && !isTriggeredByGitPush(build)) {
 			log.debug("Build trigger causes: {} ", build.getCauses());
 			// we are not performing a release so don't need a custom tearDown.
 			return new Environment() {
@@ -146,11 +151,43 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				}
 			};
 		}
-		
+		/* START WSO2 changes */
+		File pollingLog = new SCMTrigger.BuildAction(build).getPollingLogFile();
+		Iterator iterator = FileUtils.lineIterator(pollingLog);
+
+		String remoteRevision = null;
+		String remoteBranch = null;
+		Boolean changesFound = null;
+		while (iterator.hasNext()) {
+			String line = (String) iterator.next();
+			String pollHeadRegex = "(\\[poll\\] Latest remote head revision on ([^\\s]*) is: ([0-9a-f]*))|(Changes found)";
+			Pattern pattern = Pattern.compile(pollHeadRegex);
+			Matcher matcher = pattern.matcher(line);
+
+			if (matcher.matches()) {
+				if (matcher.group(1) != null) {
+					remoteBranch = matcher.group(2);
+					remoteRevision = matcher.group(3);
+				} else if (matcher.group(4) != null) {
+					changesFound = true;
+				}
+			}
+
+			if (remoteBranch != null && changesFound != null) {
+				break;
+			}
+		}
+
+		listener.getLogger().println("[WSO2 Maven Release] Remote branch: " + remoteBranch);
+		listener.getLogger().println("[WSO2 Maven Release] Remote revision: " + remoteRevision);
+		listener.getLogger().println("[WSO2 Maven Release] Changes Found? " + changesFound);
+
 		// we are a release build
-		listener.getLogger().println("Triggering a release build. Cause : " + build.getCauses());
+		listener.getLogger().println("[WSO2 Maven Release] Triggering a release build. Cause : " + build.getCauses());
 		M2ReleaseArgumentsAction args = build.getAction(M2ReleaseArgumentsAction.class);
 		args = populateMissingArguments(args, build, launcher, listener);
+		/* END WSO2 changes */
+
 		StringBuilder buildGoals = new StringBuilder();
 
 		buildGoals.append("-DdevelopmentVersion=").append(args.getDevelopmentVersion()).append(' ');
@@ -180,6 +217,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			buildGoals.append(getReleaseGoals());
 		}
 
+		listener.getLogger().println("[WSO2 Maven Release] Build Goals : " + buildGoals.toString());
 		build.addAction(new M2ReleaseArgumentInterceptorAction(buildGoals.toString(), args.getScmPassword()));
 		build.addAction(new M2ReleaseBadgeAction());
 
@@ -300,7 +338,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		};
 	}
 
-	public static final String DEFAULT_SCM_TAG_SUFFIX = "[WSO2 Release]";
+	public static final String DEFAULT_SCM_TAG_SUFFIX = "[WSO2 Release] ";
 
 	/**
 	 * If the release build is triggered via a time trigger, the arguments will
@@ -324,7 +362,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 
 		MavenModuleSet mms = getModuleSet(build);
-		MavenModule rootModule = mms.getRootModule();
+//		MavenModule rootModule = mms.getRootModule();
 
 		String rootPomVersion = null;
 //		if (rootModule != null) {
@@ -351,12 +389,12 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		String releaseVersion = m2ReleaseAction.computeReleaseVersion(rootPomVersion);
 		String scmTag = m2ReleaseAction.computeScmTag(rootPomVersion);
 
-		String scmCommentPrefix = DEFAULT_SCM_TAG_SUFFIX;
+		String scmCommentPrefix = DEFAULT_SCM_TAG_SUFFIX + "[Jenkins #" + build.getId() + "] ";
 
 		//todo do version number Validations - the version format and already existing tags
 
 		if (m2ReleaseAction.isNexusSupportEnabled()) {
-			String nexusStagingDescription = m2ReleaseAction.computeRepoDescription();
+			String nexusStagingDescription = m2ReleaseAction.computeRepoDescription(build, releaseVersion, scmTag);
 			arguments.setCloseNexusStage(m2ReleaseAction.isNexusSupportEnabled());
 			arguments.setRepoDescription(nexusStagingDescription);
 
@@ -514,6 +552,23 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	 */
 	private boolean isTriggeredByTimer(AbstractBuild build) {
 		return (build.getCause(TimerTrigger.TimerTriggerCause.class) != null);
+	}
+
+	/**
+	 * Releases should happen by git push
+	 *
+	 * @param build
+	 * @return
+	 */
+	private boolean isTriggeredByGitPush(AbstractBuild build) {
+		for(Object cause : build.getCauses()) {
+			boolean matches = GITHUB_PUSH_CAUSE.equals(cause.getClass().getName());
+			if (matches) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/** Recreate the logger on de-serialisation. */
