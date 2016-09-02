@@ -267,23 +267,32 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 					e.printStackTrace();
 				}
 
+				boolean isCloseSuccess = false;
+				Stage stage = null;
 				if (args.isCloseNexusStage() && !args.isDryRun()) {
 					lstnr.getLogger().print("[WSO2 Release] staging info: ");
 					lstnr.getLogger().println("" + getDescriptor().getNexusURL() + "++++ "+ getDescriptor()
 							.getNexusUser() + "---" + getDescriptor().getNexusPassword());
-					
+
 					StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor()
 							.getNexusUser(), getDescriptor().getNexusPassword());
 					try {
 						MavenModule rootModule = mmSet.getRootModule();
 						// TODO grab the version that we have just released...
-						Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId,
+						stage = client.getOpenStageID(rootModule.getModuleName().groupId,
 								rootModule.getModuleName().artifactId, args.getReleaseVersion());
 						if (stage != null) {
 							if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
 								lstnr.getLogger().println("[M2Release] Closing repository " + stage);
 								client.closeStage(stage, args.getRepoDescription());
 								lstnr.getLogger().println("[M2Release] Closed staging repository.");
+
+								if (args.isReleaseNexusStage()) {
+									lstnr.getLogger().println("[WSO2 Release] Releasing repository " + stage);
+									client.releaseStage(stage);
+									lstnr.getLogger().println("[WSO2 Release] Released repository.");
+								}
+
 							}
 							else {
 								lstnr.getLogger().println("[M2Release] Dropping repository " + stage);
@@ -302,7 +311,12 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						log.error("[M2Release] Could not close repository", ex);
 						retVal = false;
 					}
+
+
+
 				}
+
+
 
 				if (args.isDryRun()) {
 					lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");

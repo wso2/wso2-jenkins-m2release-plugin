@@ -51,6 +51,7 @@ public class M2ReleaseArgumentsAction implements Action {
 	private Map<String, String> moduledevelopmentVersions = null;
 
 	private boolean closeNexusStage = true;
+	private boolean releaseNexusStage = false;
 	private transient String repoDescription;
 
 	private boolean dryRun = false;
@@ -120,6 +121,15 @@ public class M2ReleaseArgumentsAction implements Action {
 
 	public void setCloseNexusStage(boolean closeNexusStage) {
 		this.closeNexusStage = closeNexusStage;
+		this.releaseNexusStage = closeNexusStage; //todo must fix
+	}
+
+	public boolean isReleaseNexusStage() {
+		return releaseNexusStage;
+	}
+
+	public void setReleaseNexusStage(boolean releaseNexusStage) {
+		this.releaseNexusStage = releaseNexusStage;
 	}
 
 	public String getRepoDescription() {
