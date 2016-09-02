@@ -35,6 +35,10 @@
 			<id>imod</id>
 			<name>Dominik Bartholdi</name>
 		</developer>
+		<developer>
+			<id>kasung</id>
+			<name>Kasun Gajasinghe</name>
+		</developer>
 	</developers>
 
 	<scm>
@@ -114,6 +118,11 @@
 			<artifactId>maven-settings</artifactId>
 			<version>${maven.test.version}</version>
 			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.jenkins-ci.plugins</groupId>
+			<artifactId>git</artifactId>
+			<version>2.4.0</version>
 		</dependency>
 	</dependencies>
 

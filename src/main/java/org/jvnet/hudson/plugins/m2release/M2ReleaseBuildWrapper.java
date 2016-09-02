@@ -23,6 +23,7 @@
  */
 package org.jvnet.hudson.plugins.m2release;
 
+import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -41,7 +42,10 @@ import hudson.model.Hudson;
 import hudson.model.Item;
 import hudson.model.Result;
 import hudson.model.Run;
+import hudson.plugins.git.GitSCM;
+import hudson.plugins.git.util.GitUtils;
 import hudson.remoting.VirtualChannel;
+import hudson.scm.SCM;
 import hudson.security.Permission;
 import hudson.security.PermissionGroup;
 import hudson.tasks.BuildWrapper;
@@ -51,9 +55,12 @@ import hudson.triggers.SCMTrigger;
 import hudson.triggers.TimerTrigger;
 import hudson.util.FormValidation;
 import hudson.util.RunList;
+import hudson.util.TextFile;
 import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.jgit.lib.ObjectId;
+import org.jenkinsci.plugins.gitclient.GitClient;
 import org.jvnet.hudson.plugins.m2release.nexus.Stage;
 import org.jvnet.hudson.plugins.m2release.nexus.StageClient;
 import org.jvnet.hudson.plugins.m2release.nexus.StageException;
@@ -68,12 +75,14 @@ import org.xml.sax.SAXException;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -86,6 +95,8 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
+
+//import jenkins.triggers.SCMTriggerItem.SCMTriggerItems;
 
 /**
  * Wraps a {@link MavenBuild} to be able to run the <a
@@ -131,56 +142,50 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		this.numberOfReleaseBuildsToKeep = numberOfReleaseBuildsToKeep;
 	}
 
+	class DefaultEnvironment extends Environment {
+		/** intentionally blank */
+		@Override
+		public void buildEnvVars(Map<String, String> env) {
+			if (StringUtils.isNotBlank(releaseEnvVar)) {
+				// inform others that we are NOT doing a release build
+				env.put(releaseEnvVar, "false");
+			}
+		}
+	}
 
 	@Override
-	public Environment setUp(@SuppressWarnings("rawtypes") AbstractBuild build, Launcher launcher, final BuildListener listener)
+	public Environment setUp(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener)
 	                                                                                              throws IOException,
 	                                                                                              InterruptedException {
 
 		if (!isReleaseBuild(build) && !isTriggeredByGitPush(build)) {
 			log.debug("Build trigger causes: {} ", build.getCauses());
 			// we are not performing a release so don't need a custom tearDown.
-			return new Environment() {
-				/** intentionally blank */
-				@Override
-				public void buildEnvVars(Map<String, String> env) {
-					if (StringUtils.isNotBlank(releaseEnvVar)) {
-						// inform others that we are NOT doing a release build
-						env.put(releaseEnvVar, "false");
-					}
-				}
-			};
+			return new DefaultEnvironment();
 		}
 		/* START WSO2 changes */
 		File pollingLog = new SCMTrigger.BuildAction(build).getPollingLogFile();
-		Iterator iterator = FileUtils.lineIterator(pollingLog);
-
-		String remoteRevision = null;
-		String remoteBranch = null;
-		Boolean changesFound = null;
-		while (iterator.hasNext()) {
-			String line = (String) iterator.next();
-			String pollHeadRegex = "(\\[poll\\] Latest remote head revision on ([^\\s]*) is: ([0-9a-f]*))|(Changes found)";
-			Pattern pattern = Pattern.compile(pollHeadRegex);
-			Matcher matcher = pattern.matcher(line);
-
-			if (matcher.matches()) {
-				if (matcher.group(1) != null) {
-					remoteBranch = matcher.group(2);
-					remoteRevision = matcher.group(3);
-				} else if (matcher.group(4) != null) {
-					changesFound = true;
-				}
-			}
-
-			if (remoteBranch != null && changesFound != null) {
-				break;
-			}
-		}
+		RemoteScmInfo remoteScmInfo = getRemoteScmInfo(pollingLog);
+		String remoteBranch = remoteScmInfo.getRemoteBranch();
+		String remoteRevision = remoteScmInfo.getRemoteRevision();
+		Boolean changesFound = remoteScmInfo.getChangesFound();
 
 		listener.getLogger().println("[WSO2 Maven Release] Remote branch: " + remoteBranch);
 		listener.getLogger().println("[WSO2 Maven Release] Remote revision: " + remoteRevision);
-		listener.getLogger().println("[WSO2 Maven Release] Changes Found? " + changesFound);
+		listener.getLogger().println("[WSO2 Maven Release] Changes found? " + changesFound);
+
+		String lastReleaseRevision = "NaN";
+		try {
+			lastReleaseRevision = getLastReleaseRevisionNumber(build.getProject());
+		} catch (IOException e) {
+			listener.getLogger().println("[WSO2 Maven Release] last release revision number not found locally.");
+		}
+
+		if (lastReleaseRevision.equalsIgnoreCase(remoteRevision)) {
+			listener.getLogger().println("[WSO2 Maven Release] remote revision and last released revisions match. "
+					+ "Not triggering a release...");
+			return new DefaultEnvironment();
+		}
 
 		// we are a release build
 		listener.getLogger().println("[WSO2 Maven Release] Triggering a release build. Cause : " + build.getCauses());
@@ -235,10 +240,38 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			public boolean tearDown(@SuppressWarnings("rawtypes") AbstractBuild bld, BuildListener lstnr)
 					throws IOException, InterruptedException {
 				boolean retVal = true;
-				
+
 				final MavenModuleSet mmSet = getModuleSet(bld);
 				M2ReleaseArgumentsAction args = bld.getAction(M2ReleaseArgumentsAction.class);
+
+				try {
+					//write the latest release revision number
+					SCM scm = build.getProject().getScm();
+					if (scm instanceof GitSCM) {
+                        GitSCM gitSCM = (GitSCM) scm;
+                        AbstractProject project = bld.getProject();
+                        final EnvVars environment = GitUtils
+                                .getPollEnvironment(project, bld.getWorkspace(), launcher, listener);
+                        GitClient gitClient = gitSCM.createClient(lstnr, environment, bld, bld.getWorkspace());
+                        ObjectId objectId = gitClient.revParse("HEAD");
+                        StringWriter writer = new StringWriter();
+                        objectId.copyTo(writer);
+                        String headHash = writer.toString();
+
+                        TextFile file = getLastReleaseRevisionNumberFile(project);
+                        file.write(headHash);
+                    }
+				} catch (IOException e) {
+					e.printStackTrace();//todo
+				} catch (Throwable e) {
+					e.printStackTrace();
+				}
+
 				if (args.isCloseNexusStage() && !args.isDryRun()) {
+					lstnr.getLogger().print("[WSO2 Release] staging info: ");
+					lstnr.getLogger().println("" + getDescriptor().getNexusURL() + "++++ "+ getDescriptor()
+							.getNexusUser() + "---" + getDescriptor().getNexusPassword());
+					
 					StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor()
 							.getNexusUser(), getDescriptor().getNexusPassword());
 					try {
@@ -270,7 +303,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						retVal = false;
 					}
 				}
-				
+
 				if (args.isDryRun()) {
 					lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");
 				}
@@ -328,7 +361,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				}
 				return false;
 			}
-			
+
 			private boolean shouldKeepBuildNumber(int numToKeep, int numKept) {
 				if (numToKeep == -1) {
 					return true;
@@ -339,6 +372,15 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	}
 
 	public static final String DEFAULT_SCM_TAG_SUFFIX = "[WSO2 Release] ";
+
+	public TextFile getLastReleaseRevisionNumberFile(AbstractProject project) {
+		return new TextFile(new File(project.getRootDir(), "lastReleaseRevisionNumber"));
+	}
+
+	public String getLastReleaseRevisionNumber(AbstractProject project) throws IOException {
+		return getLastReleaseRevisionNumberFile(project).read();
+	}
+
 
 	/**
 	 * If the release build is triggered via a time trigger, the arguments will
@@ -779,5 +821,67 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			}
 			return FormValidation.ok();
 		}
+	}
+
+	public RemoteScmInfo getRemoteScmInfo(String pollingLog) {
+		Iterator it = Arrays.asList(pollingLog.split("\n")).iterator();
+		return getRemoteScmInfo(it);
+	}
+
+	public RemoteScmInfo getRemoteScmInfo(File pollingLogFile) throws IOException {
+		Iterator iterator = FileUtils.lineIterator(pollingLogFile);
+		return getRemoteScmInfo(iterator);
+	}
+
+	private RemoteScmInfo getRemoteScmInfo(Iterator pollingLogIterator) {
+		String remoteRevision = null;
+		String remoteBranch = null;
+		Boolean changesFound = null;
+		while (pollingLogIterator.hasNext()) {
+			String line = (String) pollingLogIterator.next();
+			String pollHeadRegex = "(\\[poll\\] Latest remote head revision on ([^\\s]*) is: ([0-9a-f]*))|(Changes found)";
+			Pattern pattern = Pattern.compile(pollHeadRegex);
+			Matcher matcher = pattern.matcher(line);
+
+			if (matcher.matches()) {
+				if (matcher.group(1) != null) {
+					remoteBranch = matcher.group(2);
+					remoteRevision = matcher.group(3);
+				} else if (matcher.group(4) != null) {
+					changesFound = true;
+				}
+			}
+
+			if (remoteBranch != null && changesFound != null) {
+				break;
+			}
+		}
+		return new RemoteScmInfo(remoteRevision, remoteBranch, changesFound);
+	}
+
+	private class RemoteScmInfo {
+		private String remoteRevision;
+		private String remoteBranch;
+		private Boolean changesFound;
+
+		public RemoteScmInfo(String remoteRevision, String remoteBranch, Boolean changesFound) {
+			this.remoteRevision = remoteRevision;
+			this.remoteBranch = remoteBranch;
+			this.changesFound = changesFound;
+		}
+
+		public String getRemoteRevision() {
+			return remoteRevision;
+		}
+
+		public String getRemoteBranch() {
+			return remoteBranch;
+		}
+
+		public Boolean getChangesFound() {
+			return changesFound;
+		}
+
+
 	}
 }
