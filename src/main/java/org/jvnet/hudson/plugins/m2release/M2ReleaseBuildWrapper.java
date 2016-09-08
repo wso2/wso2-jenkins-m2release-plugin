@@ -42,6 +42,7 @@ import hudson.model.Hudson;
 import hudson.model.Item;
 import hudson.model.Result;
 import hudson.model.Run;
+import hudson.plugins.git.Branch;
 import hudson.plugins.git.GitSCM;
 import hudson.plugins.git.UserRemoteConfig;
 import hudson.plugins.git.util.GitUtils;
@@ -89,6 +90,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -198,12 +200,18 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 		// we are a release build
 		listener.getLogger().println("[WSO2 Maven Release] Triggering a release build. Cause : " + build.getCauses());
+
 		M2ReleaseArgumentsAction args = build.getAction(M2ReleaseArgumentsAction.class);
 		args = populateMissingArguments(args, build, launcher, listener);
+
+		//validate
+		final String releaseBranch = DEFAULT_SCM_RELEASE_BRANCH_PREFIX + args.getReleaseVersion();
+		if (!validateRelease(build, launcher, listener, args)) {
+			return new DefaultEnvironment();
+		}
 		/* END WSO2 changes */
 
 		StringBuilder buildGoals = new StringBuilder();
-
 		buildGoals.append("-DdevelopmentVersion=").append(args.getDevelopmentVersion()).append(' ');
 		buildGoals.append("-DreleaseVersion=").append(args.getReleaseVersion()).append(' ');
 
@@ -237,7 +245,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 		/* START WSO2 changes */
 		//checkout a new release branch
-		final String releaseBranch = DEFAULT_SCM_RELEASE_BRANCH_PREFIX + args.getReleaseVersion();
 		if (build.getProject().getScm() instanceof GitSCM) {
 			GitSCM gitSCM = (GitSCM) build.getProject().getScm();
 			AbstractProject project = build.getProject();
@@ -351,6 +358,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 									}
 								}
 
+
 								//todo delete the release branch - kasung
 
 								if (args.isReleaseNexusStage()) {
@@ -449,6 +457,37 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				return numKept < numToKeep;
 			}
 		};
+	}
+
+	private boolean validateRelease(AbstractBuild build, Launcher launcher, BuildListener listener,
+			M2ReleaseArgumentsAction args) throws IOException, InterruptedException {
+		if (build.getProject().getScm() instanceof GitSCM) {
+			final String releaseBranch = DEFAULT_SCM_RELEASE_BRANCH_PREFIX + args.getReleaseVersion();
+			GitSCM gitSCM = (GitSCM) build.getProject().getScm();
+			AbstractProject project = build.getProject();
+
+			final EnvVars environment = GitUtils.getPollEnvironment(project, build.getWorkspace(), launcher, listener);
+			GitClient gitClient = gitSCM.createClient(listener, environment, build, build.getWorkspace());
+
+			Set<Branch> remoteBranches = gitClient.getRemoteBranches();
+			for (Branch aRemoteBranch : remoteBranches) {
+				if (aRemoteBranch.getName().contains(releaseBranch)) {
+					listener.getLogger().println("[WSO2 Maven Release] [ERROR] Release branch " + releaseBranch +
+							" already exists. Aborting the release build...");
+					listener.getLogger().println();
+					listener.getLogger().println();
+					return false;
+				}
+			}
+
+			//validate the tag does not exist
+			if (gitClient.tagExists(args.getScmTagName())) {
+				listener.getLogger().println("[WSO2 Maven Release] [ERROR] Release Tag " + args.getScmTagName() +
+						"already exists. Aborting the release build...");
+				return false;
+			}
+		}
+		return true;
 	}
 
 	public TextFile getLastReleaseRevisionNumberFile(AbstractProject project) {
