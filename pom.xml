@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>org.jenkins-ci.plugins.m2release</groupId>
+	<groupId>org.wso2.jenkins-ci.plugins.m2release</groupId>
 	<artifactId>m2release</artifactId>
 	<packaging>hpi</packaging>
 	<version>0.15.0-SNAPSHOT</version>
@@ -42,9 +42,9 @@
 	</developers>
 
 	<scm>
-		<connection>scm:git:git://github.com/jenkinsci/m2release-plugin.git</connection>
-		<developerConnection>scm:git:git@github.com:jenkinsci/m2release-plugin.git</developerConnection>
-		<url>https://github.com/jenkinsci/m2release-plugin/</url>
+		<connection>scm:git:git://github.com/kasunbg/m2release-plugin.git</connection>
+		<developerConnection>scm:git:git@github.com:kasunbg/m2release-plugin.git</developerConnection>
+		<url>https://github.com/kasunbg/m2release-plugin/</url>
 		<tag>HEAD</tag>
 	</scm>
 
