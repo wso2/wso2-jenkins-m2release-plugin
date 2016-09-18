@@ -140,7 +140,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public boolean                        selectScmCredentials         = DescriptorImpl.DEFAULT_SELECT_SCM_CREDENTIALS;
 	
 	public int                            numberOfReleaseBuildsToKeep  = DescriptorImpl.DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP;
-	
+
 	@DataBoundConstructor
 	public M2ReleaseBuildWrapper(String releaseGoals, String dryRunGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, String releaseEnvVar, String scmUserEnvVar, String scmPasswordEnvVar, int numberOfReleaseBuildsToKeep) {
 		super();
@@ -251,7 +251,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		/* START WSO2 changes */
 		//checkout a new release branch
 		final String releaseBranch =
-				DEFAULT_SCM_RELEASE_BRANCH_PREFIX + args.getReleaseVersion() + "-" + (int) (new Random().nextDouble() * 1000);
+				DEFAULT_SCM_RELEASE_BRANCH_PREFIX + args.getReleaseVersion() + "-a" + (int) (new Random().nextDouble() * 1000);
 		if (build.getProject().getScm() instanceof GitSCM) {
 			GitSCM gitSCM = (GitSCM) build.getProject().getScm();
 			AbstractProject project = build.getProject();
@@ -264,245 +264,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 		/* END WSO2 changes */
 
-		return new Environment() {
-
-			@Override
-			public void buildEnvVars(Map<String, String> env) {
-				if (StringUtils.isNotBlank(releaseEnvVar)) {
-					// inform others that we are doing a release build
-					env.put(releaseEnvVar, "true");
-				}
-			}
-
-			@Override
-			public boolean tearDown(@SuppressWarnings("rawtypes") AbstractBuild bld, BuildListener lstnr)
-					throws IOException, InterruptedException {
-				boolean retVal = true;
-
-				final MavenModuleSet mmSet = getModuleSet(bld);
-				M2ReleaseArgumentsAction args = bld.getAction(M2ReleaseArgumentsAction.class);
-
-				try {
-					//write the latest release revision number
-					SCM scm = build.getProject().getScm();
-					if (scm instanceof GitSCM) {
-                        GitSCM gitSCM = (GitSCM) scm;
-                        AbstractProject project = bld.getProject();
-                        final EnvVars environment = GitUtils
-                                .getPollEnvironment(project, bld.getWorkspace(), launcher, listener);
-                        GitClient gitClient = gitSCM.createClient(lstnr, environment, bld, bld.getWorkspace());
-                        ObjectId objectId = gitClient.revParse(DEFAULT_REF);
-                        StringWriter writer = new StringWriter();
-                        objectId.copyTo(writer);
-                        String headHash = writer.toString();
-
-                        TextFile file = getLastReleaseRevisionNumberFile(project);
-                        file.write(headHash);
-                    }
-				} catch (IOException e) {
-					StringWriter sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw)); //todo
-					lstnr.getLogger().println("[WSO2 Maven Release] Error " + e.getMessage() + " " + sw.toString());
-				} catch (Throwable e) {
-					StringWriter sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw)); //todo
-					lstnr.getLogger().println("[WSO2 Maven Release] Error " + e.getMessage() + " " + sw.toString());
-				}
-
-				if (args.isCloseNexusStage() && !args.isDryRun() && getDescriptor().getNexusURL() != null) {
-
-					StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor()
-							.getNexusUser(), getDescriptor().getNexusPassword());
-					try {
-						MavenModule rootModule = mmSet.getRootModule();
-						// TODO grab the version that we have just released...
-						Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId,
-								rootModule.getModuleName().artifactId, args.getReleaseVersion());
-						if (stage != null) {
-							if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
-								lstnr.getLogger().println("[M2Release] Closing repository " + stage);
-								client.closeStage(stage, args.getRepoDescription());
-								lstnr.getLogger().println("[M2Release] Closed staging repository.");
-
-								/* START WSO2 changes */
-								//merge the release branch into master
-								if (build.getProject().getScm() instanceof GitSCM) {
-									GitSCM gitSCM = (GitSCM) build.getProject().getScm();
-									AbstractProject project = build.getProject();
-
-									final EnvVars environment = GitUtils
-											.getPollEnvironment(project, build.getWorkspace(), launcher, listener);
-									GitClient gitClient = gitSCM
-											.createClient(listener, environment, build, build.getWorkspace());
-
-									//merge release commits into master
-									List<UserRemoteConfig> userRemoteConfigs = gitSCM.getUserRemoteConfigs();
-									log.info("User remote Configs " + userRemoteConfigs);
-									if (userRemoteConfigs.isEmpty()) {
-										lstnr.fatalError("[WSO2 Maven Release] "
-												+ "Could not find the git remote URL for project. \n");
-									}//Git push may fail. todo add this error -kasung
-									else if (userRemoteConfigs.get(0).getCredentialsId() == null) {
-										printInfoIntoBuildLog("Credentials are not present in the git configuration", lstnr);
-									}
-
-									//merge into original branch
-									String remoteUrl = userRemoteConfigs.get(0).getUrl();
-									String releaseBranchHeadCommit = gitClient.revParse(DEFAULT_REF).name();
-
-									//local branch name that will be pushed to #remoteBranch
-									String localBranchToPush = UUID.randomUUID().toString();
-									printInfoIntoBuildLog("Checking out branch " + localBranchToPush +
-											"and merging " + releaseBranchHeadCommit, lstnr);
-									String localFetchBranch = "refs/remotes/origin/" + localBranchToPush;
-									gitClient.checkoutBranch(localBranchToPush, remoteRevision); //do a git pull after this on remote branch - kasung
-									try {
-										//get latest commits from the remote branch before pushing to avoid outdated wc error
-										String fetchRefspec = remoteBranch + ":" + localFetchBranch;
-										printInfoIntoBuildLog(
-												"Fetching latest changes from: " + remoteUrl + "with refspec: " + fetchRefspec +
-														" before merging the release commits into deveopment branch.", lstnr);
-
-										gitClient.fetch_().from(new URIish(remoteUrl), Collections.singletonList(new RefSpec(fetchRefspec))).execute();
-										String latestRemoteCommit = gitClient.revParse(localFetchBranch).getName();
-										ObjectId latestRemoteCommitObject = ObjectId.fromString(latestRemoteCommit);
-                                        gitClient.merge().setRevisionToMerge(latestRemoteCommitObject).execute();
-									} catch (URISyntaxException e) {
-										lstnr.fatalError("[WSO2 Maven Release] "
-												+ "Could not parse the git remote URL for project: " + remoteUrl);
-									} catch (GitException e) {
-										//conflict!!
-										printExceptionIntoBuildLog(e, lstnr);
-										gitClient.checkoutBranch(localBranchToPush, remoteRevision);
-										//todo handle kasung
-									}
-
-									gitClient.merge().
-											setRevisionToMerge(ObjectId.fromString(releaseBranchHeadCommit))
-											.execute();
-
-									try {
-										String refspec = localBranchToPush + ":" + remoteBranch;
-										printInfoIntoBuildLog(
-												"Pushing to remote URL: " + remoteUrl + "with refspec: " + refspec, lstnr);
-										gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
-									} catch (URISyntaxException e) {
-										lstnr.fatalError("[WSO2 Maven Release] "
-												+ "Could not parse the git remote URL for project: " + remoteUrl);
-									} catch (GitException e) {
-										printExceptionIntoBuildLog(e, lstnr);
-										//todo handle kasung
-									}
-								}
-
-								//todo delete the release branch - kasung
-
-								if (args.isReleaseNexusStage()) {
-									lstnr.getLogger().println("[WSO2 Maven Release] Releasing repository " + stage);
-									client.releaseStage(stage);
-									lstnr.getLogger().println("[WSO2 Maven Release] Released repository.");
-								}
-								/* END WSO2 changes */
-							}
-							else {
-								lstnr.getLogger().println("[M2Release] Dropping repository " + stage);
-								client.dropStage(stage);
-								lstnr.getLogger().println("[M2Release] Dropped staging repository.");
-							}
-						}
-						else {
-							retVal = false;
-							lstnr.fatalError("[M2Release] Could not find nexus stage repository for project.\n");
-						}
-					}
-					catch (StageException ex) {
-						lstnr.fatalError("[M2Release] Could not close repository , %1$s\n", ex.getMessage());
-						ex.printStackTrace(lstnr.getLogger());
-						log.error("[M2Release] Could not close repository", ex);
-						retVal = false;
-					}
-
-
-
-				}
-
-
-
-				if (args.isDryRun()) {
-					lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");
-				}
-				int buildsKept = 0;
-				if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !args.isDryRun()) {
-					if (numberOfReleaseBuildsToKeep > 0 || numberOfReleaseBuildsToKeep == -1) {
-						// keep this build.
-						lstnr.getLogger().println("[M2Release] assigning keep build to current build.");
-						bld.keepLog();
-						buildsKept++;
-					}
-
-					// the value may have changed since a previous release so go searching...
-					log.debug("looking for extra release builds to lock/unlock.");
-					for (Run run : (RunList<? extends Run>) (bld.getProject().getBuilds())) {
-						log.debug("checking build #{}", run.getNumber());
-						if (isSuccessfulReleaseBuild(run)) {
-							log.debug("build #{} was successful.", run.getNumber());
-							if (bld.getNumber() != run.getNumber()) { // not sure we still need this check..
-								if (shouldKeepBuildNumber(numberOfReleaseBuildsToKeep, buildsKept)) {
-									buildsKept++;
-									if (!run.isKeepLog()) {
-										lstnr.getLogger().println(
-												"[M2Release] assigning keep build to build " + run.getNumber());
-										run.keepLog(true);
-									}
-								}
-								else {
-									if (run.isKeepLog()) {
-										lstnr.getLogger().println(
-												"[M2Release] removing keep build from build " + run.getNumber());
-										run.keepLog(false);
-									}
-								}
-							}
-						}
-						else {
-							log.debug("build #{} was NOT successful release build.", run.getNumber());
-						}
-					}
-				}
-
-				return retVal;
-			}
-
-			/**
-			 * evaluate if the specified build is a successful release build (not including dry runs)
-			 * @param run the run to check
-			 * @return <code>true</code> if this is a successful release build that is not a dry run.
-			 */
-			private boolean isSuccessfulReleaseBuild(Run run) {
-				M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
-				if (a != null && !run.isBuilding() && run.getResult().isBetterOrEqualTo(Result.SUCCESS) && !a.isDryRun()) {
-					return true;
-				}
-				return false;
-			}
-
-			private boolean shouldKeepBuildNumber(int numToKeep, int numKept) {
-				if (numToKeep == -1) {
-					return true;
-				}
-				return numKept < numToKeep;
-			}
-		};
+		return new ReleaseEnvironment(releaseBranch, remoteBranch, remoteRevision, launcher);
 	}
 
-	private void printInfoIntoBuildLog(String message, TaskListener listener) {
-		listener.getLogger().println("[WSO2 Maven Release] " + message);
-	}
-
-	private void printExceptionIntoBuildLog(Exception exception, TaskListener taskListener) {
-		taskListener.getLogger().println("[ERROR] [WSO2 Maven Release] merging the changes. " + exception.getMessage());
-		StringWriter sw = new StringWriter();
-		exception.printStackTrace(new PrintWriter(sw));
-		taskListener.getLogger().println(sw.toString());
-	}
 
 	private boolean validateRelease(AbstractBuild build, Launcher launcher, BuildListener listener,
 			M2ReleaseArgumentsAction args) throws IOException, InterruptedException {
@@ -516,7 +280,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 			Set<Branch> remoteBranches = gitClient.getRemoteBranches();
 			for (Branch aRemoteBranch : remoteBranches) {
-				if (aRemoteBranch.getName().contains(releaseBranch)) {
+				if (aRemoteBranch.getName().equalsIgnoreCase(releaseBranch)) {
 					listener.getLogger().println("[WSO2 Maven Release] [ERROR] Release branch " + releaseBranch +
 							" already exists. Aborting the release build...");
 					listener.getLogger().println();
@@ -593,7 +357,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		String releaseVersion = m2ReleaseAction.computeReleaseVersion(rootPomVersion);
 		String scmTag = m2ReleaseAction.computeScmTag(rootPomVersion);
 
-		String scmCommentPrefix = DEFAULT_SCM_TAG_SUFFIX + "[Jenkins #" + build.getId() + "] ";
+		String scmCommentPrefix = DEFAULT_SCM_TAG_SUFFIX + "[Jenkins #" + build.getId() + "] " + "[Release " + releaseVersion + "] ";
 
 		//todo do version number Validations - the version format and already existing tags
 
@@ -773,6 +537,22 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 
 		return false;
+	}
+
+	private void printInfoIntoBuildLog(String message, TaskListener listener) {
+		listener.getLogger().println("[WSO2 Maven Release] " + message);
+	}
+
+	private void printSeparator(TaskListener listener) {
+		listener.getLogger().println("------------------------------------------------------------------------");
+		listener.getLogger().println("");
+	}
+
+	private void printExceptionIntoBuildLog(Exception exception, TaskListener taskListener) {
+		taskListener.getLogger().println("[ERROR] [WSO2 Maven Release] merging the changes. " + exception.getMessage());
+		StringWriter sw = new StringWriter();
+		exception.printStackTrace(new PrintWriter(sw));
+		taskListener.getLogger().println(sw.toString());
 	}
 
 	/** Recreate the logger on de-serialisation. */
@@ -1044,6 +824,257 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			return changesFound;
 		}
 
+	}
+
+	class ReleaseEnvironment extends Environment {
+
+		private String releaseBranch;
+		final String remoteBranch;
+		final String remoteRevision;
+		Launcher launcher;
+
+		public ReleaseEnvironment(String releaseBranch, String remoteBranch, String remoteRevision, Launcher launcher) {
+			this.releaseBranch = releaseBranch;
+			this.remoteBranch = remoteBranch;
+			this.remoteRevision = remoteRevision;
+			this.launcher = launcher;
+		}
+
+		@Override
+		public void buildEnvVars(Map<String, String> env) {
+			if (StringUtils.isNotBlank(releaseEnvVar)) {
+				// inform others that we are doing a release build
+				env.put(releaseEnvVar, "true");
+			}
+		}
+
+		@Override
+		public boolean tearDown(@SuppressWarnings("rawtypes") AbstractBuild bld, BuildListener lstnr)
+				throws IOException, InterruptedException {
+			boolean retVal = true;
+
+			final MavenModuleSet mmSet = getModuleSet(bld);
+			M2ReleaseArgumentsAction args = bld.getAction(M2ReleaseArgumentsAction.class);
+
+			try {
+				//write the latest release revision number
+				SCM scm = bld.getProject().getScm();
+				if (scm instanceof GitSCM) {
+					GitSCM gitSCM = (GitSCM) scm;
+					AbstractProject project = bld.getProject();
+					final EnvVars environment = GitUtils
+							.getPollEnvironment(project, bld.getWorkspace(), launcher, lstnr);
+					GitClient gitClient = gitSCM.createClient(lstnr, environment, bld, bld.getWorkspace());
+					ObjectId objectId = gitClient.revParse(DEFAULT_REF);
+					StringWriter writer = new StringWriter();
+					objectId.copyTo(writer);
+					String headHash = writer.toString();
+
+					TextFile file = getLastReleaseRevisionNumberFile(project);
+					file.write(headHash);
+				}
+			} catch (IOException e) {
+				StringWriter sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw)); //todo
+				lstnr.getLogger().println("[WSO2 Maven Release] Error " + e.getMessage() + " " + sw.toString());
+			} catch (Throwable e) {
+				StringWriter sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw)); //todo
+				lstnr.getLogger().println("[WSO2 Maven Release] Error " + e.getMessage() + " " + sw.toString());
+			}
+
+			if (args.isCloseNexusStage() && !args.isDryRun() && getDescriptor().getNexusURL() != null) {
+
+				StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor()
+						.getNexusUser(), getDescriptor().getNexusPassword());
+				try {
+					MavenModule rootModule = mmSet.getRootModule();
+					// TODO grab the version that we have just released...
+					Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId,
+							rootModule.getModuleName().artifactId, args.getReleaseVersion());
+					if (stage != null) {
+						if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
+							lstnr.getLogger().println("[M2Release] Closing repository " + stage);
+							client.closeStage(stage, args.getRepoDescription());
+							lstnr.getLogger().println("[M2Release] Closed staging repository.");
+
+							/* START WSO2 changes */
+							//release the nexus staging repository
+							if (args.isReleaseNexusStage()) {
+								lstnr.getLogger().println("[WSO2 Maven Release] Releasing repository " + stage);
+								client.releaseStage(stage);
+								lstnr.getLogger().println("[WSO2 Maven Release] Released repository.");
+								printSeparator(lstnr);
+							}
+
+							//merge the release branch into master
+							if (bld.getProject().getScm() instanceof GitSCM) {
+								GitSCM gitSCM = (GitSCM) bld.getProject().getScm();
+								AbstractProject project = bld.getProject();
+
+								final EnvVars environment = GitUtils
+										.getPollEnvironment(project, bld.getWorkspace(), launcher, lstnr);
+								GitClient gitClient = gitSCM
+										.createClient(lstnr, environment, bld, bld.getWorkspace());
+
+								//merge release commits into master
+								List<UserRemoteConfig> userRemoteConfigs = gitSCM.getUserRemoteConfigs();
+								log.info("User remote Configs " + userRemoteConfigs);
+								if (userRemoteConfigs.isEmpty()) {
+									lstnr.fatalError("[WSO2 Maven Release] "
+											+ "Could not find the git remote URL for project. \n");
+								} else if (userRemoteConfigs.get(0).getCredentialsId() == null) {
+									printInfoIntoBuildLog("Credentials are not present in the git configuration", lstnr);
+								}
+
+								//merge into original branch
+								String remoteUrl = userRemoteConfigs.get(0).getUrl();
+								String releaseBranchHeadCommit = gitClient.revParse(DEFAULT_REF).name();
+
+								//local branch name that will be pushed to #remoteBranch
+								String localBranchToPush = UUID.randomUUID().toString();
+								printInfoIntoBuildLog("Checking out a local branch named " + localBranchToPush +
+										"and merging the commit " + releaseBranchHeadCommit + " to it.", lstnr);
+								String localFetchBranch = "refs/remotes/origin/" + localBranchToPush;
+								gitClient.checkoutBranch(localBranchToPush, remoteRevision);
+								printSeparator(lstnr);
+								try {
+									//get latest commits from the remote branch before pushing to avoid outdated wc error
+									String fetchRefspec = remoteBranch + ":" + localFetchBranch;
+									printInfoIntoBuildLog(
+											"Fetching latest changes from: " + remoteUrl + " with refspec: " + fetchRefspec +
+													" before merging the release commits into deveopment branch.", lstnr);
+
+									gitClient.fetch_().from(new URIish(remoteUrl), Collections
+											.singletonList(new RefSpec(fetchRefspec))).execute();
+									String latestRemoteCommit = gitClient.revParse(localFetchBranch).getName();
+									ObjectId latestRemoteCommitObject = ObjectId.fromString(latestRemoteCommit);
+									printInfoIntoBuildLog("Merging upstream changes that has happened while the build was ongoing into " + localBranchToPush, lstnr);
+									gitClient.merge().setRevisionToMerge(latestRemoteCommitObject).execute();
+									printSeparator(lstnr);
+								} catch (URISyntaxException e) {
+									lstnr.fatalError("[WSO2 Maven Release] "
+											+ "Could not parse the git remote URL for project: " + remoteUrl);
+								} catch (GitException e) {
+									printExceptionIntoBuildLog(e, lstnr);
+									gitClient.checkoutBranch(localBranchToPush, remoteRevision);
+									//todo handle kasung
+								}
+
+								try {
+									printInfoIntoBuildLog("Merging release commits into " + localBranchToPush, lstnr);
+									gitClient.merge().
+											setRevisionToMerge(ObjectId.fromString(releaseBranchHeadCommit))
+											.execute();
+
+									String refspec = localBranchToPush + ":" + remoteBranch;
+									printInfoIntoBuildLog(
+											"Pushing to remote URL: " + remoteUrl + " with refspec: " + refspec, lstnr);
+									gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
+
+									//if no exceptions, then remove the remote release branch
+									refspec = ":" + releaseBranch;
+									printInfoIntoBuildLog(
+											"Deleting release branch from remote with refspec: " + refspec, lstnr);
+									gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
+									printSeparator(lstnr);
+								} catch (URISyntaxException e) {
+									lstnr.fatalError("[WSO2 Maven Release] "
+											+ "Could not parse the git remote URL for project: " + remoteUrl);
+								} catch (GitException e) {
+									//this could fail if merging the release commits lead to a conflict.
+									printExceptionIntoBuildLog(e, lstnr);
+									bld.keepLog();
+									//todo handle kasung
+								}
+							}
+							/* END WSO2 changes */
+						}
+						else {
+							lstnr.getLogger().println("[M2Release] Dropping repository " + stage);
+							client.dropStage(stage);
+							lstnr.getLogger().println("[M2Release] Dropped staging repository.");
+						}
+					}
+					else {
+						retVal = false;
+						lstnr.fatalError("[M2Release] Could not find nexus stage repository for project.\n");
+					}
+				}
+				catch (StageException ex) {
+					lstnr.fatalError("[M2Release] Could not close repository , %1$s\n", ex.getMessage());
+					ex.printStackTrace(lstnr.getLogger());
+					log.error("[M2Release] Could not close repository", ex);
+					retVal = false;
+				}
+
+			}
+
+			if (args.isDryRun()) {
+				lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");
+			}
+			int buildsKept = 0;
+			if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !args.isDryRun()) {
+				if (numberOfReleaseBuildsToKeep > 0 || numberOfReleaseBuildsToKeep == -1) {
+					// keep this build.
+					lstnr.getLogger().println("[M2Release] assigning keep build to current build.");
+					bld.keepLog();
+					buildsKept++;
+				}
+
+				// the value may have changed since a previous release so go searching...
+				log.debug("looking for extra release builds to lock/unlock.");
+				for (Run run : (RunList<? extends Run>) (bld.getProject().getBuilds())) {
+					log.debug("checking build #{}", run.getNumber());
+					if (isSuccessfulReleaseBuild(run)) {
+						log.debug("build #{} was successful.", run.getNumber());
+						if (bld.getNumber() != run.getNumber()) { // not sure we still need this check..
+							if (shouldKeepBuildNumber(numberOfReleaseBuildsToKeep, buildsKept)) {
+								buildsKept++;
+								if (!run.isKeepLog()) {
+									lstnr.getLogger().println(
+											"[M2Release] assigning keep build to build " + run.getNumber());
+									run.keepLog(true);
+								}
+							}
+							else {
+								if (run.isKeepLog()) {
+									lstnr.getLogger().println(
+											"[M2Release] removing keep build from build " + run.getNumber());
+									run.keepLog(false);
+								}
+							}
+						}
+					}
+					else {
+						log.debug("build #{} was NOT successful release build.", run.getNumber());
+					}
+				}
+			}
+
+			return retVal;
+		}
+
+		/**
+		 * evaluate if the specified build is a successful release build (not including dry runs)
+		 * @param run the run to check
+		 * @return <code>true</code> if this is a successful release build that is not a dry run.
+		 */
+		private boolean isSuccessfulReleaseBuild(Run run) {
+			M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
+			if (a != null && !run.isBuilding() && run.getResult().isBetterOrEqualTo(Result.SUCCESS) && !a.isDryRun()) {
+				return true;
+			}
+			return false;
+		}
+
+		private boolean shouldKeepBuildNumber(int numToKeep, int numKept) {
+			if (numToKeep == -1) {
+				return true;
+			}
+			return numKept < numToKeep;
+		}
 
 	}
+
+
+
 }
