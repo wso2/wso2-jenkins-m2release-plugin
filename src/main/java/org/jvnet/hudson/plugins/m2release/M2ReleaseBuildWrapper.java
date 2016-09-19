@@ -933,16 +933,16 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 							rootModule.getModuleName().artifactId, args.getReleaseVersion());
 					if (stage != null) {
 						if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
-							lstnr.getLogger().println("[M2Release] Closing repository " + stage);
+							lstnr.getLogger().println("[M2Release] Closing Nexus staging repository " + stage);
 							client.closeStage(stage, args.getRepoDescription());
-							lstnr.getLogger().println("[M2Release] Closed staging repository.");
+							lstnr.getLogger().println("[M2Release] Closed Nexus staging repository.");
 
 							/* START WSO2 changes */
 							//release the nexus staging repository
 							if (args.isReleaseNexusStage()) {
-								lstnr.getLogger().println("[WSO2 Maven Release] Releasing repository " + stage);
+								lstnr.getLogger().println("[WSO2 Maven Release] Releasing Nexus repository " + stage);
 								client.releaseStage(stage);
-								lstnr.getLogger().println("[WSO2 Maven Release] Released repository.");
+								lstnr.getLogger().println("[WSO2 Maven Release] Released Nexus repository.");
 								printSeparator(lstnr);
 							}
 
