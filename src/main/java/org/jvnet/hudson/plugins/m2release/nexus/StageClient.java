@@ -607,7 +607,7 @@ public class StageClient {
 			// Base64 adds a trailing newline - just strip it as whitespace is illegal in Base64
 			String encodedAuth = new Base64().encodeToString(auth.getBytes("ISO-8859-1")).trim();
 			conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
-			log.debug("Encoded Authentication is: " + encodedAuth);
+			//log.debug("Encoded Authentication is: " + encodedAuth);
 		}
 		catch (UnsupportedEncodingException ex) {
 			String msg =

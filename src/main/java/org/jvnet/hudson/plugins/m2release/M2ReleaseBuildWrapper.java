@@ -47,6 +47,7 @@ import hudson.plugins.git.Branch;
 import hudson.plugins.git.GitException;
 import hudson.plugins.git.GitSCM;
 import hudson.plugins.git.UserRemoteConfig;
+import hudson.plugins.git.extensions.impl.RelativeTargetDirectory;
 import hudson.plugins.git.util.GitUtils;
 import hudson.remoting.VirtualChannel;
 import hudson.scm.SCM;
@@ -124,6 +125,12 @@ import javax.xml.xpath.XPathFactory;
 public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	private static final String GITHUB_PUSH_CAUSE = "com.cloudbees.jenkins.GitHubPushCause";
+	public static final String LAST_RELEASE_REVISION_NUMBER = "lastReleaseRevisionNumber";
+	public static final String NOT_A_NUMBER = "NaN";
+	public static final String RELEASE_BUILD_ABORTED_MESSAGE = "ABORTING the release build "
+			+ "and falling back to a SNAPSHOT build...";
+	public static final String ERROR_READING_VERSION_FROM_POM_XML = "[M2Release] Error reading version from pom.xml. ";
+	public static final String ENV_POM_VERSION = "POM_VERSION";
 	private transient Logger log = LoggerFactory.getLogger(M2ReleaseBuildWrapper.class);
 
 	/** For backwards compatibility with older configurations. @deprecated */
@@ -191,7 +198,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		listener.getLogger().println("[WSO2 Maven Release] Remote revision: " + remoteRevision);
 		listener.getLogger().println("[WSO2 Maven Release] Changes found? " + changesFound);
 
-		String lastReleaseRevision = "NaN";
+		String lastReleaseRevision = NOT_A_NUMBER;
 		try {
 			lastReleaseRevision = getLastReleaseRevisionNumber(build.getProject()).trim();
 		} catch (IOException e) {
@@ -270,6 +277,13 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	private boolean validateRelease(AbstractBuild build, Launcher launcher, BuildListener listener,
 			M2ReleaseArgumentsAction args) throws IOException, InterruptedException {
+		if (args == null) {
+			printSeparator(listener);
+			printInfoIntoBuildLog(RELEASE_BUILD_ABORTED_MESSAGE, listener);
+			printSeparator(listener);
+			return false;
+		}
+
 		if (build.getProject().getScm() instanceof GitSCM) {
 			final String releaseBranch = DEFAULT_SCM_RELEASE_BRANCH_PREFIX + args.getReleaseVersion();
 			GitSCM gitSCM = (GitSCM) build.getProject().getScm();
@@ -281,26 +295,37 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			Set<Branch> remoteBranches = gitClient.getRemoteBranches();
 			for (Branch aRemoteBranch : remoteBranches) {
 				if (aRemoteBranch.getName().equalsIgnoreCase(releaseBranch)) {
-					listener.getLogger().println("[WSO2 Maven Release] [ERROR] Release branch " + releaseBranch +
-							" already exists. Aborting the release build...");
-					listener.getLogger().println();
-					listener.getLogger().println();
+					printSeparator(listener);
+					printInfoIntoBuildLog("[ERROR] Release branch " + releaseBranch +
+							" already exists. " + RELEASE_BUILD_ABORTED_MESSAGE, listener);
+					printSeparator(listener);
 					return false;
 				}
 			}
 
 			//validate the tag does not exist
 			if (gitClient.tagExists(args.getScmTagName())) {
-				listener.getLogger().println("[WSO2 Maven Release] [ERROR] Release Tag " + args.getScmTagName() +
-						"already exists. Aborting the release build...");
+				printSeparator(listener);
+				printInfoIntoBuildLog("[ERROR] Release Tag " + args.getScmTagName() +
+						"already exists. " + RELEASE_BUILD_ABORTED_MESSAGE, listener);
+				printSeparator(listener);
 				return false;
 			}
+		}
+
+		if (NOT_A_NUMBER.equalsIgnoreCase(args.getReleaseVersion())) {
+			printSeparator(listener);
+			printInfoIntoBuildLog("[ERROR] Version could not be inferred automatically. "
+					+ "Check whether the very first build of this job is a release build.", listener);
+			printInfoIntoBuildLog(RELEASE_BUILD_ABORTED_MESSAGE, listener);
+			printSeparator(listener);
+			return false;
 		}
 		return true;
 	}
 
 	public TextFile getLastReleaseRevisionNumberFile(AbstractProject project) {
-		return new TextFile(new File(project.getRootDir(), "lastReleaseRevisionNumber"));
+		return new TextFile(new File(project.getRootDir(), LAST_RELEASE_REVISION_NUMBER));
 	}
 
 	public String getLastReleaseRevisionNumber(AbstractProject project) throws IOException {
@@ -330,27 +355,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 
 		MavenModuleSet mms = getModuleSet(build);
-//		MavenModule rootModule = mms.getRootModule();
 
-		String rootPomVersion = null;
-//		if (rootModule != null) {
-//			rootPomVersion = rootModule.getVersion();
-//		} else {
-			try {
-				listener.getLogger().println("[M2Release] Root Module information not found. "
-						+ "Calculating the version by processing the root pom.xml");
-				FilePath path = new FilePath(build.getWorkspace(), "pom.xml");
-				rootPomVersion = path.act(new PomVersionReader());
-			} catch (IOException e) {
-				listener.getLogger().println("[M2Release] Error reading version from pom.xml. " + e.getMessage());
-				e.printStackTrace(listener.getLogger());
-				throw e;
-			} catch (InterruptedException e) {
-				listener.getLogger().println("[M2Release] Error reading version from pom.xml. " + e.getMessage());
-				e.printStackTrace(listener.getLogger());
-				throw e;
-			}
-//		}
+		String rootPomVersion = getRootPomVersion(mms, build, listener);
+		if (rootPomVersion == null) {
+			return null;
+		}
 
 		M2ReleaseAction m2ReleaseAction = new M2ReleaseAction(mms, false, false, false);
 		nextDevelopmentVersion = m2ReleaseAction.computeNextVersion(rootPomVersion);
@@ -391,6 +400,53 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return arguments;
 	}
 
+	private String getRootPomVersion(MavenModuleSet mms, AbstractBuild build, TaskListener listener) {
+		String pomVersion = null;
+		if (mms != null && mms.getRootModule() != null) {
+			MavenModule rootModule = mms.getRootModule();
+			pomVersion = rootModule.getVersion();
+		} else {
+			try {
+				listener.getLogger().println("[M2Release] Root Module information not found. "
+						+ "Calculating the version by processing the root pom.xml");
+
+				FilePath scmWorkspace = null;
+				AbstractProject project = build.getProject();
+				// if Git checkout to a sub-directory is set, consider that to infer scm workspace
+				if (project.getScm() instanceof GitSCM) {
+					GitSCM gitSCM = (GitSCM) project.getScm();
+					EnvVars environment = build.getEnvironment(listener);
+
+					scmWorkspace = gitSCM.getExtensions().get(RelativeTargetDirectory.class).
+							getWorkingDirectory(gitSCM, project, build.getWorkspace(), environment, listener);
+				}
+
+				if (scmWorkspace == null) {
+					scmWorkspace = build.getWorkspace();
+				}
+
+				pomVersion = scmWorkspace.child("pom.xml").act(new PomVersionReader());
+			} catch (IOException e) {
+				printExceptionIntoBuildLog(ERROR_READING_VERSION_FROM_POM_XML, e, listener);
+			} catch (InterruptedException e) {
+				printExceptionIntoBuildLog(ERROR_READING_VERSION_FROM_POM_XML, e, listener);
+			}
+		}
+
+		if (pomVersion == null) {
+			//try to get it from environment
+			try {
+				pomVersion = build.getEnvironment(listener).get(ENV_POM_VERSION);
+			} catch (IOException e) {
+				printExceptionIntoBuildLog("Error reading Pom version from environment. ", e, listener);
+			} catch (InterruptedException e) {
+				printExceptionIntoBuildLog("Error reading Pom version from environment. ", e, listener);
+			}
+		}
+
+		return pomVersion;
+	}
+
 	/**
 	 * Manually read the pom version if the Jenkins rootModule is not available.
 	 * This reads the pom file transparent from the actual remote slave.
@@ -402,7 +458,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		 * Manually read the pom version if the Jenkins rootModule is not available.
 		 */
 		public String invoke(File file, VirtualChannel channel) throws IOException, InterruptedException {
-			String version = "NaN";
+			String version = NOT_A_NUMBER;
 			try {
 				if (file.isFile()) {
 					DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -548,11 +604,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		listener.getLogger().println("");
 	}
 
-	private void printExceptionIntoBuildLog(Exception exception, TaskListener taskListener) {
-		taskListener.getLogger().println("[ERROR] [WSO2 Maven Release] merging the changes. " + exception.getMessage());
-		StringWriter sw = new StringWriter();
-		exception.printStackTrace(new PrintWriter(sw));
-		taskListener.getLogger().println(sw.toString());
+	private void printExceptionIntoBuildLog(String customMessage, Exception exception, TaskListener taskListener) {
+		taskListener.getLogger().println(customMessage + exception.getMessage());
+		exception.printStackTrace(taskListener.getLogger());
 	}
 
 	/** Recreate the logger on de-serialisation. */
@@ -954,7 +1008,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 									lstnr.fatalError("[WSO2 Maven Release] "
 											+ "Could not parse the git remote URL for project: " + remoteUrl);
 								} catch (GitException e) {
-									printExceptionIntoBuildLog(e, lstnr);
+									printExceptionIntoBuildLog("[ERROR] [WSO2 Maven Release] merging the changes. ", e,
+											lstnr);
 									gitClient.checkoutBranch(localBranchToPush, remoteRevision);
 									//todo handle kasung
 								}
@@ -976,12 +1031,15 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 											"Deleting release branch from remote with refspec: " + refspec, lstnr);
 									gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
 									printSeparator(lstnr);
+
+
 								} catch (URISyntaxException e) {
 									lstnr.fatalError("[WSO2 Maven Release] "
 											+ "Could not parse the git remote URL for project: " + remoteUrl);
 								} catch (GitException e) {
 									//this could fail if merging the release commits lead to a conflict.
-									printExceptionIntoBuildLog(e, lstnr);
+									printExceptionIntoBuildLog("[ERROR] [WSO2 Maven Release] merging the changes. ", e,
+											lstnr);
 									bld.keepLog();
 									//todo handle kasung
 								}
@@ -1025,7 +1083,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				for (Run run : (RunList<? extends Run>) (bld.getProject().getBuilds())) {
 					log.debug("checking build #{}", run.getNumber());
 					if (isSuccessfulReleaseBuild(run)) {
-						log.debug("build #{} was successful.", run.getNumber());
+						log.info("[WSO2 Maven Release] {} release build #{} was successful.",
+								bld.getProject().getName(), run.getNumber());
 						if (bld.getNumber() != run.getNumber()) { // not sure we still need this check..
 							if (shouldKeepBuildNumber(numberOfReleaseBuildsToKeep, buildsKept)) {
 								buildsKept++;
@@ -1045,7 +1104,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						}
 					}
 					else {
-						log.debug("build #{} was NOT successful release build.", run.getNumber());
+						log.info("[WSO2 Maven Release] {} release build #{} was NOT successful.",
+								bld.getProject().getName(), run.getNumber());
 					}
 				}
 			}
