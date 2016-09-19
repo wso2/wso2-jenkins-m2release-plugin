@@ -256,9 +256,19 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		build.addAction(new M2ReleaseBadgeAction());
 
 		/* START WSO2 changes */
+		String releaseBranch = checkoutReleaseBranch(args, build, launcher, listener);
+		/* END WSO2 changes */
+
+		return new ReleaseEnvironment(releaseBranch, remoteBranch, remoteRevision, launcher);
+	}
+
+	private String checkoutReleaseBranch(M2ReleaseArgumentsAction args, AbstractBuild build, Launcher launcher,
+			TaskListener listener) throws InterruptedException, IOException {
 		//checkout a new release branch
-		final String releaseBranch =
-				DEFAULT_SCM_RELEASE_BRANCH_PREFIX + args.getReleaseVersion() + "-a" + (int) (new Random().nextDouble() * 1000);
+		int randomNumber = (int) (new Random().nextDouble() * 1000);
+		String randomString = "-" + String.valueOf((char)(randomNumber % 26 + 97)) + randomNumber; // -g242
+		String releaseBranch =
+				DEFAULT_SCM_RELEASE_BRANCH_PREFIX + args.getReleaseVersion() + randomString;
 		if (build.getProject().getScm() instanceof GitSCM) {
 			GitSCM gitSCM = (GitSCM) build.getProject().getScm();
 			AbstractProject project = build.getProject();
@@ -269,10 +279,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			gitClient.checkoutBranch(releaseBranch, DEFAULT_REF);
 			listener.getLogger().println("[WSO2 Maven Release] Checked out the branch : " + releaseBranch);
 		}
-		/* END WSO2 changes */
 
-		return new ReleaseEnvironment(releaseBranch, remoteBranch, remoteRevision, launcher);
+		return releaseBranch;
 	}
+
 
 
 	private boolean validateRelease(AbstractBuild build, Launcher launcher, BuildListener listener,
@@ -882,10 +892,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	class ReleaseEnvironment extends Environment {
 
-		private String releaseBranch;
-		final String remoteBranch;
-		final String remoteRevision;
-		Launcher launcher;
+		private final String releaseBranch;
+		private final String remoteBranch;
+		private final String remoteRevision;
+		private Launcher launcher;
 
 		public ReleaseEnvironment(String releaseBranch, String remoteBranch, String remoteRevision, Launcher launcher) {
 			this.releaseBranch = releaseBranch;
@@ -910,30 +920,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			final MavenModuleSet mmSet = getModuleSet(bld);
 			M2ReleaseArgumentsAction args = bld.getAction(M2ReleaseArgumentsAction.class);
 
-			try {
-				//write the latest release revision number
-				SCM scm = bld.getProject().getScm();
-				if (scm instanceof GitSCM) {
-					GitSCM gitSCM = (GitSCM) scm;
-					AbstractProject project = bld.getProject();
-					final EnvVars environment = GitUtils
-							.getPollEnvironment(project, bld.getWorkspace(), launcher, lstnr);
-					GitClient gitClient = gitSCM.createClient(lstnr, environment, bld, bld.getWorkspace());
-					ObjectId objectId = gitClient.revParse(DEFAULT_REF);
-					StringWriter writer = new StringWriter();
-					objectId.copyTo(writer);
-					String headHash = writer.toString();
-
-					TextFile file = getLastReleaseRevisionNumberFile(project);
-					file.write(headHash);
-				}
-			} catch (IOException e) {
-				StringWriter sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw)); //todo
-				lstnr.getLogger().println("[WSO2 Maven Release] Error " + e.getMessage() + " " + sw.toString());
-			} catch (Throwable e) {
-				StringWriter sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw)); //todo
-				lstnr.getLogger().println("[WSO2 Maven Release] Error " + e.getMessage() + " " + sw.toString());
-			}
+			writeLatestReleaseRevisionNumber(bld, lstnr);
 
 			if (args.isCloseNexusStage() && !args.isDryRun() && getDescriptor().getNexusURL() != null) {
 
@@ -979,29 +966,30 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 									printInfoIntoBuildLog("Credentials are not present in the git configuration", lstnr);
 								}
 
-								//merge into original branch
+								//get release branch head commit
 								String remoteUrl = userRemoteConfigs.get(0).getUrl();
 								String releaseBranchHeadCommit = gitClient.revParse(DEFAULT_REF).name();
 
 								//local branch name that will be pushed to #remoteBranch
 								String localBranchToPush = UUID.randomUUID().toString();
-								printInfoIntoBuildLog("Checking out a local branch named " + localBranchToPush +
-										"and merging the commit " + releaseBranchHeadCommit + " to it.", lstnr);
-								String localFetchBranch = "refs/remotes/origin/" + localBranchToPush;
+								printInfoIntoBuildLog("Checking out a temp local branch named " + localBranchToPush +
+										" at revision " + remoteRevision, lstnr);
 								gitClient.checkoutBranch(localBranchToPush, remoteRevision);
 								printSeparator(lstnr);
 								try {
 									//get latest commits from the remote branch before pushing to avoid outdated wc error
+									String localFetchBranch = "refs/remotes/origin/" + localBranchToPush;
 									String fetchRefspec = remoteBranch + ":" + localFetchBranch;
-									printInfoIntoBuildLog(
-											"Fetching latest changes from: " + remoteUrl + " with refspec: " + fetchRefspec +
-													" before merging the release commits into deveopment branch.", lstnr);
+									printInfoIntoBuildLog("Fetching latest changes with refspec: " + fetchRefspec +
+													" before merging the release commits into " + localBranchToPush,
+											lstnr);
 
 									gitClient.fetch_().from(new URIish(remoteUrl), Collections
 											.singletonList(new RefSpec(fetchRefspec))).execute();
 									String latestRemoteCommit = gitClient.revParse(localFetchBranch).getName();
 									ObjectId latestRemoteCommitObject = ObjectId.fromString(latestRemoteCommit);
-									printInfoIntoBuildLog("Merging upstream changes that has happened while the build was ongoing into " + localBranchToPush, lstnr);
+									printInfoIntoBuildLog("Merging fetched upstream changes into " + localBranchToPush,
+											lstnr);
 									gitClient.merge().setRevisionToMerge(latestRemoteCommitObject).execute();
 									printSeparator(lstnr);
 								} catch (URISyntaxException e) {
@@ -1015,21 +1003,30 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 								}
 
 								try {
-									printInfoIntoBuildLog("Merging release commits into " + localBranchToPush, lstnr);
-									gitClient.merge().
-											setRevisionToMerge(ObjectId.fromString(releaseBranchHeadCommit))
-											.execute();
-
-									String refspec = localBranchToPush + ":" + remoteBranch;
+									//merg release commits
 									printInfoIntoBuildLog(
-											"Pushing to remote URL: " + remoteUrl + " with refspec: " + refspec, lstnr);
+											"Merging release branch HEAD commit, " + releaseBranchHeadCommit + ", into "
+													+ localBranchToPush, lstnr);
+									gitClient.merge().
+											setRevisionToMerge(ObjectId.fromString(releaseBranchHeadCommit)).execute();
+
+									//push the whole thing into original remote branch
+									String refspec = localBranchToPush + ":" + remoteBranch;
+									printInfoIntoBuildLog("Pushing the whole thing into remote.", lstnr);
 									gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
 
 									//if no exceptions, then remove the remote release branch
 									refspec = ":" + releaseBranch;
-									printInfoIntoBuildLog(
-											"Deleting release branch from remote with refspec: " + refspec, lstnr);
+									lstnr.getLogger().println();
+									printInfoIntoBuildLog("Deleting release branch from remote.", lstnr);
 									gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
+
+									String headCommitHashAfterMerge = writeLatestReleaseRevisionNumber(bld, lstnr);
+									log.debug("[WSO2 Maven Release] {}-{} : Written the revision {} ", bld.getProject(),
+											bld.getDisplayName(), headCommitHashAfterMerge);
+									printInfoIntoBuildLog(
+											"Stored last release commit hash : " + headCommitHashAfterMerge, lstnr);
+
 									printSeparator(lstnr);
 
 
@@ -1114,6 +1111,39 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 
 		/**
+		 * Writes the current head commit hash into jenkins-home/jobs/job-name/lastReleaseRevisionNumber
+		 */
+		private String writeLatestReleaseRevisionNumber(AbstractBuild bld, TaskListener lstnr) {
+			try {
+				//write the latest release revision number
+				SCM scm = bld.getProject().getScm();
+				if (scm instanceof GitSCM) {
+					GitSCM gitSCM = (GitSCM) scm;
+					AbstractProject project = bld.getProject();
+					final EnvVars environment = GitUtils
+							.getPollEnvironment(project, bld.getWorkspace(), launcher, lstnr);
+					GitClient gitClient = gitSCM.createClient(lstnr, environment, bld, bld.getWorkspace());
+					ObjectId objectId = gitClient.revParse(DEFAULT_REF);
+					StringWriter writer = new StringWriter();
+					objectId.copyTo(writer);
+					String headHash = writer.toString();
+
+					TextFile file = getLastReleaseRevisionNumberFile(project);
+					file.write(headHash);
+					return headHash;
+				}
+			} catch (IOException e) {
+				StringWriter sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw)); //todo
+				lstnr.getLogger().println("[WSO2 Maven Release] Error " + e.getMessage() + " " + sw.toString());
+			} catch (Throwable e) {
+				StringWriter sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw)); //todo
+				lstnr.getLogger().println("[WSO2 Maven Release] Error " + e.getMessage() + " " + sw.toString());
+			}
+
+			return "-";
+		}
+
+		/**
 		 * evaluate if the specified build is a successful release build (not including dry runs)
 		 * @param run the run to check
 		 * @return <code>true</code> if this is a successful release build that is not a dry run.
@@ -1134,7 +1164,5 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 
 	}
-
-
 
 }
