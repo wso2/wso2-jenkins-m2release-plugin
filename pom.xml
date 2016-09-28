@@ -4,7 +4,7 @@
 	<groupId>org.wso2.jenkins-ci.plugins.m2release</groupId>
 	<artifactId>m2release</artifactId>
 	<packaging>hpi</packaging>
-	<version>0.15.1</version>
+	<version>0.15.2-SNAPSHOT</version>
 
 	<parent>
 		<groupId>org.jenkins-ci.plugins</groupId>
