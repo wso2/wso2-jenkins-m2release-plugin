@@ -208,6 +208,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		if (lastReleaseRevision.equalsIgnoreCase(remoteRevision)) {
 			listener.getLogger().println("[WSO2 Maven Release] remote revision and last released revisions match. "
 					+ "Not triggering a release...");
+			printSeparator(listener);
 			return new DefaultEnvironment();
 		}
 
@@ -378,8 +379,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 		String scmCommentPrefix = DEFAULT_SCM_TAG_SUFFIX + "[Jenkins #" + build.getId() + "] " + "[Release " + releaseVersion + "] ";
 
-		//todo do version number Validations - the version format and already existing tags
-
 		if (m2ReleaseAction.isNexusSupportEnabled()) {
 			String nexusStagingDescription = m2ReleaseAction.computeRepoDescription(build, releaseVersion, scmTag);
 			arguments.setCloseNexusStage(m2ReleaseAction.isNexusSupportEnabled());
@@ -412,39 +411,41 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	private String getRootPomVersion(MavenModuleSet mms, AbstractBuild build, TaskListener listener) {
 		String pomVersion = null;
-		if (mms != null && mms.getRootModule() != null) {
+
+		try {
+			FilePath scmWorkspace = null;
+			AbstractProject project = build.getProject();
+			// if Git checkout to a sub-directory is set, consider that to infer scm workspace
+			if (project.getScm() instanceof GitSCM) {
+				GitSCM gitSCM = (GitSCM) project.getScm();
+				EnvVars environment = build.getEnvironment(listener);
+
+				scmWorkspace = gitSCM.getExtensions().get(RelativeTargetDirectory.class).
+						getWorkingDirectory(gitSCM, project, build.getWorkspace(), environment, listener);
+			}
+
+			if (scmWorkspace == null) {
+				scmWorkspace = build.getWorkspace();
+			}
+
+			pomVersion = scmWorkspace.child("pom.xml").act(new PomVersionReader());
+		} catch (IOException e) {
+			printExceptionIntoBuildLog(ERROR_READING_VERSION_FROM_POM_XML, e, listener);
+		} catch (InterruptedException e) {
+			printExceptionIntoBuildLog(ERROR_READING_VERSION_FROM_POM_XML, e, listener);
+		}
+
+		if (pomVersion == null && (mms != null && mms.getRootModule() != null)) {
+			listener.getLogger().println("[M2Release] Version could not be calculated by reading the pom.xml. ");
+
 			MavenModule rootModule = mms.getRootModule();
 			pomVersion = rootModule.getVersion();
-		} else {
-			try {
-				listener.getLogger().println("[M2Release] Root Module information not found. "
-						+ "Calculating the version by processing the root pom.xml");
-
-				FilePath scmWorkspace = null;
-				AbstractProject project = build.getProject();
-				// if Git checkout to a sub-directory is set, consider that to infer scm workspace
-				if (project.getScm() instanceof GitSCM) {
-					GitSCM gitSCM = (GitSCM) project.getScm();
-					EnvVars environment = build.getEnvironment(listener);
-
-					scmWorkspace = gitSCM.getExtensions().get(RelativeTargetDirectory.class).
-							getWorkingDirectory(gitSCM, project, build.getWorkspace(), environment, listener);
-				}
-
-				if (scmWorkspace == null) {
-					scmWorkspace = build.getWorkspace();
-				}
-
-				pomVersion = scmWorkspace.child("pom.xml").act(new PomVersionReader());
-			} catch (IOException e) {
-				printExceptionIntoBuildLog(ERROR_READING_VERSION_FROM_POM_XML, e, listener);
-			} catch (InterruptedException e) {
-				printExceptionIntoBuildLog(ERROR_READING_VERSION_FROM_POM_XML, e, listener);
-			}
 		}
 
 		if (pomVersion == null) {
 			//try to get it from environment
+			listener.getLogger().println("[M2Release] Getting the pom version by reading the environment variable "
+					+ ENV_POM_VERSION);
 			try {
 				pomVersion = build.getEnvironment(listener).get(ENV_POM_VERSION);
 			} catch (IOException e) {
