@@ -146,13 +146,14 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	}
 
 	public String computeReleaseVersion() {
-		return computeReleaseVersion("NaN");
+		return computeReleaseVersion("");
 	}
 
 	public String computeReleaseVersion(String rootPomVersion) {
 		String version;
 		final MavenModule rootModule = getRootModule();
-		if (rootPomVersion == null && rootModule != null && StringUtils.isNotBlank(rootModule.getVersion())) {
+		if ((rootPomVersion == null || rootPomVersion.isEmpty())
+				&& rootModule != null && StringUtils.isNotBlank(rootModule.getVersion())) {
 			rootPomVersion = rootModule.getVersion();
 		}
 
@@ -181,6 +182,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		String ls = System.getProperty("line.separator");
 		String url = build != null ? build.getAbsoluteUrl() : "-";
 		StringBuilder descriptionBuilder = new StringBuilder();
+		descriptionBuilder.append("<pre style=\"background-color: #EFEFEF\">").append(ls);
 		descriptionBuilder.append("Jenkins build: ").append(url);  //deprecated only for html rendering
 
 		MavenModule mavenModule = project.getRootModule();
@@ -198,9 +200,10 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		} else {
 			moduleName = mavenModule.getName();
 		}
-		descriptionBuilder.append(ls).append(" - Git Tag: ").append(scmTag).append(ls).
-				append(" - Release version: ").append(releaseVersion).append(ls).
-				append(" - Maven Info: ").append(moduleName);
+		descriptionBuilder.append(ls).append("  - Git Tag: ").append(scmTag).append(ls).append(ls).
+				append("  - Release version: ").append(releaseVersion).append(ls).append(ls).
+				append("  - Maven Info: ").append(moduleName).append(ls);
+		descriptionBuilder.append("</pre>");
 
 		return descriptionBuilder.toString();
 	}
@@ -209,7 +212,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 
 	public String computeScmTag() {
 		// maven default is artifact-version. WSO2 uses v<version>
-		return computeNextVersion(computeReleaseVersion("NaN"));
+		return DEFAULT_SCM_TAG_PREFIX + computeReleaseVersion("");
 	}
 
 	public String computeScmTag(String rootPomVersion) {
@@ -217,13 +220,13 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	}
 
 	public String computeNextVersion() {
-		return computeNextVersion("NaN-SNAPSHOT");
+		return computeNextVersion("");
 	}
 
 	public String computeNextVersion(String rootPomVersion) {
-		String version = "NaN-SNAPSHOT";
 		final MavenModule rootModule = getRootModule();
-		if (rootPomVersion == null && rootModule != null && StringUtils.isNotBlank(rootModule.getVersion())) {
+		if ((rootPomVersion == null || rootPomVersion.isEmpty())
+				&& rootModule != null && StringUtils.isNotBlank(rootModule.getVersion())) {
 			rootPomVersion = rootModule.getVersion();
 		}
 
@@ -231,6 +234,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			throw new IllegalArgumentException("Cannot proceed with release. Pom version cannot be determined");
 		}
 
+		String version = "NaN-SNAPSHOT";
 		try {
 			DefaultVersionInfo dvi = new DefaultVersionInfo(rootPomVersion);
 			version = dvi.getNextVersion().getSnapshotVersionString();

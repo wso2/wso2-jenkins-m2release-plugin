@@ -124,6 +124,9 @@ import javax.xml.xpath.XPathFactory;
  */
 public class M2ReleaseBuildWrapper extends BuildWrapper {
 
+	public static final String GIT_BRANCH = "GIT_BRANCH";
+	public static final String GIT_COMMIT = "GIT_COMMIT";
+
 	private static final String GITHUB_PUSH_CAUSE = "com.cloudbees.jenkins.GitHubPushCause";
 	public static final String LAST_RELEASE_REVISION_NUMBER = "lastReleaseRevisionNumber";
 	public static final String NOT_A_NUMBER = "NaN";
@@ -183,40 +186,44 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	                                                                                              InterruptedException {
 
 		if (!isReleaseBuild(build) && !isTriggeredByGitPush(build)) {
-			log.debug("Build trigger causes: {} ", build.getCauses());
+			log.debug("Build trigger causes for {} : {}", build.getProject().getName(), build.getCauses());
 			// we are not performing a release so don't need a custom tearDown.
 			return new DefaultEnvironment();
 		}
-		/* START WSO2 changes */
-		File pollingLog = new SCMTrigger.BuildAction(build).getPollingLogFile();
-		RemoteScmInfo remoteScmInfo = getRemoteScmInfo(pollingLog);
-		final String remoteBranch = remoteScmInfo.getRemoteBranch();
-		final String remoteRevision = remoteScmInfo.getRemoteRevision();
-		final Boolean changesFound = remoteScmInfo.getChangesFound();
-
-		listener.getLogger().println("[WSO2 Maven Release] Remote branch: " + remoteBranch);
-		listener.getLogger().println("[WSO2 Maven Release] Remote revision: " + remoteRevision);
-		listener.getLogger().println("[WSO2 Maven Release] Changes found? " + changesFound);
-
-		String lastReleaseRevision = NOT_A_NUMBER;
-		try {
-			lastReleaseRevision = getLastReleaseRevisionNumber(build.getProject()).trim();
-		} catch (IOException e) {
-			listener.getLogger().println("[WSO2 Maven Release] last release revision number not found locally.");
-		}
-
-		if (lastReleaseRevision.equalsIgnoreCase(remoteRevision)) {
-			listener.getLogger().println("[WSO2 Maven Release] remote revision and last released revisions match. "
-					+ "Not triggering a release...");
-			printSeparator(listener);
-			return new DefaultEnvironment();
-		}
+		printSeparator(listener);
 
 		// we are a release build
 		listener.getLogger().println("[WSO2 Maven Release] Triggering a release build. Cause : " + build.getCauses());
 
 		M2ReleaseArgumentsAction args = build.getAction(M2ReleaseArgumentsAction.class);
-		args = populateMissingArguments(args, build, launcher, listener);
+
+		/* START WSO2 changes */
+		String remoteRevision = build.getEnvironment(listener).get(GIT_COMMIT);
+		String remoteBranch = getRemoteBranch(build.getEnvironment(listener).get(GIT_BRANCH));
+		if (isTriggeredByGitPush(build)) {
+			args = populateMissingArguments(args, build, launcher, listener);
+
+			File pollingLog = new SCMTrigger.BuildAction(build).getPollingLogFile();
+			RemoteScmInfo remoteScmInfo = getRemoteScmInfo(pollingLog);
+			remoteBranch = remoteScmInfo.getRemoteBranch();
+			remoteRevision = remoteScmInfo.getRemoteRevision();
+
+			String lastReleaseRevision = NOT_A_NUMBER;
+			try {
+				lastReleaseRevision = getLastReleaseRevisionNumber(build.getProject()).trim();
+			} catch (IOException e) {
+				listener.getLogger().println("[WSO2 Maven Release] last release revision number not found locally.");
+			}
+
+			if (lastReleaseRevision.equalsIgnoreCase(remoteRevision)) {
+				listener.getLogger().println("[WSO2 Maven Release] remote revision and last released revisions match ("
+						+ remoteRevision + "). Not triggering a release...");
+				printSeparator(listener);
+				return new DefaultEnvironment();
+			}
+		}
+		listener.getLogger().println("[WSO2 Maven Release] Remote branch: " + remoteBranch);
+		listener.getLogger().println("[WSO2 Maven Release] Remote revision: " + remoteRevision);
 
 		//validate
 		if (!validateRelease(build, launcher, listener, args)) {
@@ -261,6 +268,24 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		/* END WSO2 changes */
 
 		return new ReleaseEnvironment(releaseBranch, remoteBranch, remoteRevision, launcher);
+	}
+
+	private String getRemoteBranch(String branch) {
+		if (branch == null) {
+			return null;
+		}
+		//normalize
+		if (branch.startsWith("refs/remotes/")) branch = branch.substring("refs/remotes/".length());
+		if (branch.startsWith("remotes/")) branch = branch.substring("remotes/".length());
+
+		Pattern remoteBranchPattern = Pattern.compile("[^/]*/(.*)");
+		Matcher matcher = remoteBranchPattern.matcher(branch);
+		if (matcher.matches()) {
+			return "refs/heads/" + matcher.group(1);
+		} else {
+			return "refs/heads/" + branch;
+		}
+
 	}
 
 	private String checkoutReleaseBranch(M2ReleaseArgumentsAction args, AbstractBuild build, Launcher launcher,
@@ -942,7 +967,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 							//release the nexus staging repository
 							if (args.isReleaseNexusStage()) {
 								lstnr.getLogger().println("[WSO2 Maven Release] Releasing Nexus repository " + stage);
-								client.releaseStage(stage);
+								client.releaseStage(stage, args.getRepoDescription());
 								lstnr.getLogger().println("[WSO2 Maven Release] Released Nexus repository.");
 								printSeparator(lstnr);
 							}
@@ -959,10 +984,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 								//merge release commits into master
 								List<UserRemoteConfig> userRemoteConfigs = gitSCM.getUserRemoteConfigs();
-								log.info("User remote Configs " + userRemoteConfigs);
 								if (userRemoteConfigs.isEmpty()) {
 									lstnr.fatalError("[WSO2 Maven Release] "
-											+ "Could not find the git remote URL for project. \n");
+											+ "Could not find the git remote URL for the project. \n");
 								} else if (userRemoteConfigs.get(0).getCredentialsId() == null) {
 									printInfoIntoBuildLog("Credentials are not present in the git configuration", lstnr);
 								}
@@ -1004,7 +1028,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 								}
 
 								try {
-									//merg release commits
+									//merge release commits
 									printInfoIntoBuildLog(
 											"Merging release branch HEAD commit, " + releaseBranchHeadCommit + ", into "
 													+ localBranchToPush, lstnr);
@@ -1029,7 +1053,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 											"Stored last release commit hash : " + headCommitHashAfterMerge, lstnr);
 
 									printSeparator(lstnr);
-
 
 								} catch (URISyntaxException e) {
 									lstnr.fatalError("[WSO2 Maven Release] "
