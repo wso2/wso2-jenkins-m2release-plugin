@@ -76,7 +76,7 @@ public class StageClient {
 	/** The password passed to Nexus for authentication. */
 	private String password;
 
-	private transient String nexusVersion; 
+	private transient String nexusVersion;
 
 	/**
 	 * Create a new StageClient to handle communicating to a Nexus Pro server Staging suite.
@@ -202,6 +202,21 @@ public class StageClient {
 	 */
 	public void releaseStage(Stage stage) throws StageException {
 		performStageAction(StageAction.RELEASE, stage, null);
+		if (isAsyncClose()) {
+			waitForActionToComplete(stage);
+		}
+	}
+
+	/**
+	 * Release the stage from Nexus staging into the default repository for the stage. This does not drop stage
+	 * repository after a successful release.
+	 *
+	 * @param stage the Stage to promote.
+	 * @param description release description
+	 * @throws StageException if any issue occurred whilst promoting the stage.
+	 */
+	public void releaseStage(Stage stage, String description) throws StageException {
+		performStageAction(StageAction.RELEASE, stage, description);
 		if (isAsyncClose()) {
 			waitForActionToComplete(stage);
 		}
