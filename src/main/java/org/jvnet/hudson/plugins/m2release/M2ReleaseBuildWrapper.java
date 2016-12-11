@@ -40,6 +40,7 @@ import hudson.model.BuildListener;
 import hudson.model.Descriptor;
 import hudson.model.Hudson;
 import hudson.model.Item;
+import hudson.model.Job;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -198,10 +199,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		M2ReleaseArgumentsAction args = build.getAction(M2ReleaseArgumentsAction.class);
 
 		/* START WSO2 changes */
+		args = populateMissingArguments(args, build, launcher, listener);
+
 		String remoteRevision = build.getEnvironment(listener).get(GIT_COMMIT);
 		String remoteBranch = getRemoteBranch(build.getEnvironment(listener).get(GIT_BRANCH));
 		if (isTriggeredByGitPush(build)) {
-			args = populateMissingArguments(args, build, launcher, listener);
 
 			File pollingLog = new SCMTrigger.BuildAction(build).getPollingLogFile();
 			RemoteScmInfo remoteScmInfo = getRemoteScmInfo(pollingLog);
@@ -224,6 +226,12 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 		listener.getLogger().println("[WSO2 Maven Release] Remote branch: " + remoteBranch);
 		listener.getLogger().println("[WSO2 Maven Release] Remote revision: " + remoteRevision);
+
+		listener.getLogger().println("[WSO2 Maven Release] Release Metadata: ");
+		listener.getLogger().println("[WSO2 Maven Release]  Release Version: " + args.getReleaseVersion());
+		listener.getLogger().println("[WSO2 Maven Release]  SCM Tag Name: " + args.getScmTagName());
+		listener.getLogger().println("[WSO2 Maven Release]  Next Development Version: " + args.getDevelopmentVersion());
+		listener.getLogger().println("[WSO2 Maven Release]  Close Nexus Staging? " + args.isCloseNexusStage()); //global config
 
 		//validate
 		if (!validateRelease(build, launcher, listener, args)) {
@@ -320,6 +328,16 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			return false;
 		}
 
+		String developmentVersion = args.getDevelopmentVersion();
+		if (developmentVersion == null || developmentVersion.isEmpty()) {
+			return false;
+		}
+
+		String releaseVersion = args.getReleaseVersion();
+		if (releaseVersion == null || releaseVersion.isEmpty()) {
+			return false;
+		}
+
 		if (build.getProject().getScm() instanceof GitSCM) {
 			final String releaseBranch = DEFAULT_SCM_RELEASE_BRANCH_PREFIX + args.getReleaseVersion();
 			GitSCM gitSCM = (GitSCM) build.getProject().getScm();
@@ -374,64 +392,64 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	 * not be populated.
 	 *
 	 * @param build
-	 * @param arguments
+	 * @param args
 	 * @param launcher
 	 * @param listener
 	 */
-	private M2ReleaseArgumentsAction populateMissingArguments(M2ReleaseArgumentsAction arguments, AbstractBuild build,
+	private M2ReleaseArgumentsAction populateMissingArguments(M2ReleaseArgumentsAction args, AbstractBuild build,
 			Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
-		if (arguments == null) {
-			arguments = new M2ReleaseArgumentsAction();
-			build.addAction(arguments);
-		}
-
-		String nextDevelopmentVersion = arguments.getDevelopmentVersion();
-		if (nextDevelopmentVersion != null && !nextDevelopmentVersion.isEmpty()) {
-			return arguments;
+		if (args == null) {
+			args = new M2ReleaseArgumentsAction();
+			build.addAction(args);
 		}
 
 		MavenModuleSet mms = getModuleSet(build);
 
 		String rootPomVersion = getRootPomVersion(mms, build, listener);
 		if (rootPomVersion == null) {
-			return null;
+			return args;
 		}
 
 		M2ReleaseAction m2ReleaseAction = new M2ReleaseAction(mms, false, false, false);
-		nextDevelopmentVersion = m2ReleaseAction.computeNextVersion(rootPomVersion);
-		String releaseVersion = m2ReleaseAction.computeReleaseVersion(rootPomVersion);
-		String scmTag = m2ReleaseAction.computeScmTag(rootPomVersion);
+		if (args.getDevelopmentVersion() == null) {
+			String nextDevelopmentVersion = m2ReleaseAction.computeNextVersion(rootPomVersion);
+			args.setDevelopmentVersion(nextDevelopmentVersion);
+		}
+		if (args.getReleaseVersion() == null) {
+			String releaseVersion = m2ReleaseAction.computeReleaseVersion(rootPomVersion);
+			args.setReleaseVersion(releaseVersion);
+		}
+		if (args.getScmTagName() == null) {
+			String scmTag = m2ReleaseAction.computeScmTag(rootPomVersion);
+			String scmCommentPrefix = DEFAULT_SCM_TAG_SUFFIX + "[Jenkins #" + build.getId() + "] " +
+					"[Release " + args.getReleaseVersion() + "] ";
 
-		String scmCommentPrefix = DEFAULT_SCM_TAG_SUFFIX + "[Jenkins #" + build.getId() + "] " + "[Release " + releaseVersion + "] ";
-
-		if (m2ReleaseAction.isNexusSupportEnabled()) {
-			String nexusStagingDescription = m2ReleaseAction.computeRepoDescription(build, releaseVersion, scmTag);
-			arguments.setCloseNexusStage(m2ReleaseAction.isNexusSupportEnabled());
-			arguments.setRepoDescription(nexusStagingDescription);
-
-			//todo release nexus staging config - kasung
+			args.setScmTagName(scmTag);
+			args.setScmCommentPrefix(scmCommentPrefix);
 		}
 
-		listener.getLogger().println("[WSO2 Maven Release] Release Metadata: ");
-		listener.getLogger().println("[WSO2 Maven Release]  Current POM Version: " + rootPomVersion);
-		listener.getLogger().println("[WSO2 Maven Release]  Release Version: " + releaseVersion);
-		listener.getLogger().println("[WSO2 Maven Release]  SCM Tag Name: " + scmTag);
-		listener.getLogger().println("[WSO2 Maven Release]  Next Development Version: " + nextDevelopmentVersion);
-		listener.getLogger().println("[WSO2 Maven Release]  Close Nexus Staging? " + m2ReleaseAction
-				.isNexusSupportEnabled()); //global config
+		if (m2ReleaseAction.isNexusSupportEnabled()) {
+			String nexusStagingDescription = args.getRepoDescription();
+			if (nexusStagingDescription == null) {
+				nexusStagingDescription = m2ReleaseAction
+						.computeRepoDescription(build, args.getReleaseVersion(), args.getScmTagName());
+			}
+			args.setCloseNexusStage(m2ReleaseAction.isNexusSupportEnabled());
+			args.setRepoDescription(nexusStagingDescription);
 
-		arguments.setReleaseVersion(releaseVersion);
-		arguments.setDevelopmentVersion(nextDevelopmentVersion);
+		}
+		if (m2ReleaseAction.isNexusSupportEnabled()) {
+			args.setReleaseNexusStage(m2ReleaseAction.isNexusSupportEnabled());
+		}
+
 		// TODO - re-implement versions on specific modules.
 
 		//arguments.setScmUsername(scmUsername);
 		//arguments.setScmPassword(scmPassword);
-		arguments.setScmTagName(scmTag);
-		arguments.setScmCommentPrefix(scmCommentPrefix);
-		arguments.setAppendHusonUserName(false);
-		arguments.setHudsonUserName(Hudson.getAuthentication().getName());
+		args.setAppendHusonUserName(false);
+		args.setHudsonUserName(Hudson.getAuthentication().getName());
 
-		return arguments;
+		return args;
 	}
 
 	private String getRootPomVersion(MavenModuleSet mms, AbstractBuild build, TaskListener listener) {
@@ -444,9 +462,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			if (project.getScm() instanceof GitSCM) {
 				GitSCM gitSCM = (GitSCM) project.getScm();
 				EnvVars environment = build.getEnvironment(listener);
-
-				scmWorkspace = gitSCM.getExtensions().get(RelativeTargetDirectory.class).
-						getWorkingDirectory(gitSCM, project, build.getWorkspace(), environment, listener);
+				RelativeTargetDirectory rtd = gitSCM.getExtensions().get(RelativeTargetDirectory.class);
+				if (rtd != null) {
+					scmWorkspace = rtd.
+							getWorkingDirectory(gitSCM, (Job) project, build.getWorkspace(), environment, listener);
+				}
 			}
 
 			if (scmWorkspace == null) {
@@ -1020,6 +1040,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 								} catch (URISyntaxException e) {
 									lstnr.fatalError("[WSO2 Maven Release] "
 											+ "Could not parse the git remote URL for project: " + remoteUrl);
+									throw new IllegalArgumentException(e);
 								} catch (GitException e) {
 									printExceptionIntoBuildLog("[ERROR] [WSO2 Maven Release] merging the changes. ", e,
 											lstnr);
@@ -1028,14 +1049,14 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 								}
 
 								try {
-									//merge release commits
+									//push the whole thing into the original remote branch
 									printInfoIntoBuildLog(
 											"Merging release branch HEAD commit, " + releaseBranchHeadCommit + ", into "
 													+ localBranchToPush, lstnr);
+									//merge release commits
 									gitClient.merge().
 											setRevisionToMerge(ObjectId.fromString(releaseBranchHeadCommit)).execute();
 
-									//push the whole thing into original remote branch
 									String refspec = localBranchToPush + ":" + remoteBranch;
 									printInfoIntoBuildLog("Pushing the whole thing into remote.", lstnr);
 									gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
@@ -1062,6 +1083,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 									printExceptionIntoBuildLog("[ERROR] [WSO2 Maven Release] merging the changes. ", e,
 											lstnr);
 									bld.keepLog();
+									throw e;
 									//todo handle kasung
 								}
 							}
@@ -1125,7 +1147,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 						}
 					}
 					else {
-						log.info("[WSO2 Maven Release] {} release build #{} was NOT successful.",
+						log.debug(
+								"[WSO2 Maven Release] {} build #{} was either a snapshot build or it was not successful.",
 								bld.getProject().getName(), run.getNumber());
 					}
 				}

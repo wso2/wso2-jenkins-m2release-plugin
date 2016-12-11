@@ -182,7 +182,6 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		String ls = System.getProperty("line.separator");
 		String url = build != null ? build.getAbsoluteUrl() : "-";
 		StringBuilder descriptionBuilder = new StringBuilder();
-		descriptionBuilder.append("<pre style=\"background-color: #EFEFEF\">").append(ls);
 		descriptionBuilder.append("Jenkins build: ").append(url);  //deprecated only for html rendering
 
 		MavenModule mavenModule = project.getRootModule();
@@ -200,11 +199,11 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		} else {
 			moduleName = mavenModule.getName();
 		}
-		descriptionBuilder.append(ls).append("  - Git Tag: ").append(scmTag).append(ls).append(ls).
+		descriptionBuilder.append(ls).append(ls).
+				append("  - Git Tag: ").append(scmTag).append(ls).append(ls).
 				append("  - Release version: ").append(releaseVersion).append(ls).append(ls).
 				append("  - Maven Info: ").append(moduleName).append(ls);
-		descriptionBuilder.append("</pre>");
-
+				//.append("  - Jenkins User: ").append(Hudson.getAuthentication().getName());
 		return descriptionBuilder.toString();
 	}
 
