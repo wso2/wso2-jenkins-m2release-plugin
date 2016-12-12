@@ -32,7 +32,6 @@ import hudson.maven.AbstractMavenProject;
 import hudson.maven.MavenBuild;
 import hudson.maven.MavenModule;
 import hudson.maven.MavenModuleSet;
-import hudson.maven.MavenModuleSetBuild;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Action;
@@ -41,17 +40,12 @@ import hudson.model.Descriptor;
 import hudson.model.Hudson;
 import hudson.model.Item;
 import hudson.model.Job;
-import hudson.model.Result;
-import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.plugins.git.Branch;
-import hudson.plugins.git.GitException;
 import hudson.plugins.git.GitSCM;
-import hudson.plugins.git.UserRemoteConfig;
 import hudson.plugins.git.extensions.impl.RelativeTargetDirectory;
 import hudson.plugins.git.util.GitUtils;
 import hudson.remoting.VirtualChannel;
-import hudson.scm.SCM;
 import hudson.security.Permission;
 import hudson.security.PermissionGroup;
 import hudson.tasks.BuildWrapper;
@@ -60,16 +54,10 @@ import hudson.tasks.Builder;
 import hudson.triggers.SCMTrigger;
 import hudson.triggers.TimerTrigger;
 import hudson.util.FormValidation;
-import hudson.util.RunList;
-import hudson.util.TextFile;
 import net.sf.json.JSONObject;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
-import org.eclipse.jgit.lib.ObjectId;
-import org.eclipse.jgit.transport.RefSpec;
-import org.eclipse.jgit.transport.URIish;
 import org.jenkinsci.plugins.gitclient.GitClient;
-import org.jvnet.hudson.plugins.m2release.nexus.Stage;
 import org.jvnet.hudson.plugins.m2release.nexus.StageClient;
 import org.jvnet.hudson.plugins.m2release.nexus.StageException;
 import org.jvnet.localizer.Localizable;
@@ -83,23 +71,17 @@ import org.xml.sax.SAXException;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.servlet.ServletException;
@@ -129,7 +111,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public static final String GIT_COMMIT = "GIT_COMMIT";
 
 	private static final String GITHUB_PUSH_CAUSE = "com.cloudbees.jenkins.GitHubPushCause";
-	public static final String LAST_RELEASE_REVISION_NUMBER = "lastReleaseRevisionNumber";
 	public static final String NOT_A_NUMBER = "NaN";
 	public static final String RELEASE_BUILD_ABORTED_MESSAGE = "ABORTING the release build "
 			+ "and falling back to a SNAPSHOT build...";
@@ -182,16 +163,15 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public static final String DEFAULT_REF = "HEAD";
 
 	@Override
-	public Environment setUp(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener)
-	                                                                                              throws IOException,
-	                                                                                              InterruptedException {
+	public Environment setUp(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher,
+			final BuildListener listener) throws IOException, InterruptedException {
 
 		if (!isReleaseBuild(build) && !isTriggeredByGitPush(build)) {
 			log.debug("Build trigger causes for {} : {}", build.getProject().getName(), build.getCauses());
 			// we are not performing a release so don't need a custom tearDown.
 			return new DefaultEnvironment();
 		}
-		printSeparator(listener);
+		ReleaseUtils.printSeparator(listener);
 
 		// we are a release build
 		listener.getLogger().println("[WSO2 Maven Release] Triggering a release build. Cause : " + build.getCauses());
@@ -212,7 +192,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 			String lastReleaseRevision = NOT_A_NUMBER;
 			try {
-				lastReleaseRevision = getLastReleaseRevisionNumber(build.getProject()).trim();
+				lastReleaseRevision = ReleaseUtils.getLastReleaseRevisionNumber(build.getProject()).trim();
 			} catch (IOException e) {
 				listener.getLogger().println("[WSO2 Maven Release] last release revision number not found locally.");
 			}
@@ -220,7 +200,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			if (lastReleaseRevision.equalsIgnoreCase(remoteRevision)) {
 				listener.getLogger().println("[WSO2 Maven Release] remote revision and last released revisions match ("
 						+ remoteRevision + "). Not triggering a release...");
-				printSeparator(listener);
+				ReleaseUtils.printSeparator(listener);
 				return new DefaultEnvironment();
 			}
 		}
@@ -251,7 +231,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			buildGoals.append("\"-DscmCommentPrefix=");
 			buildGoals.append(args.getScmCommentPrefix());
 			if (args.isAppendHusonUserName()) {
-				buildGoals.append(String.format("(%s)", args.getHudsonUserName()));
+					buildGoals.append(String.format("(%s)", args.getHudsonUserName()));
 			}
 			buildGoals.append("\" ");
 		}
@@ -275,7 +255,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		String releaseBranch = checkoutReleaseBranch(args, build, launcher, listener);
 		/* END WSO2 changes */
 
-		return new ReleaseEnvironment(releaseBranch, remoteBranch, remoteRevision, launcher);
+		return new ReleaseEnvironment(this, releaseBranch, remoteBranch, remoteRevision, launcher);
 	}
 
 	private String getRemoteBranch(String branch) {
@@ -322,9 +302,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	private boolean validateRelease(AbstractBuild build, Launcher launcher, BuildListener listener,
 			M2ReleaseArgumentsAction args) throws IOException, InterruptedException {
 		if (args == null) {
-			printSeparator(listener);
-			printInfoIntoBuildLog(RELEASE_BUILD_ABORTED_MESSAGE, listener);
-			printSeparator(listener);
+			ReleaseUtils.printSeparator(listener);
+			ReleaseUtils.printInfoIntoBuildLog(RELEASE_BUILD_ABORTED_MESSAGE, listener);
+			ReleaseUtils.printSeparator(listener);
 			return false;
 		}
 
@@ -349,43 +329,34 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			Set<Branch> remoteBranches = gitClient.getRemoteBranches();
 			for (Branch aRemoteBranch : remoteBranches) {
 				if (aRemoteBranch.getName().equalsIgnoreCase(releaseBranch)) {
-					printSeparator(listener);
-					printInfoIntoBuildLog("[ERROR] Release branch " + releaseBranch +
+					ReleaseUtils.printSeparator(listener);
+					ReleaseUtils.printInfoIntoBuildLog("[ERROR] Release branch " + releaseBranch +
 							" already exists. " + RELEASE_BUILD_ABORTED_MESSAGE, listener);
-					printSeparator(listener);
+					ReleaseUtils.printSeparator(listener);
 					return false;
 				}
 			}
 
 			//validate the tag does not exist
 			if (gitClient.tagExists(args.getScmTagName())) {
-				printSeparator(listener);
-				printInfoIntoBuildLog("[ERROR] Release Tag " + args.getScmTagName() +
+				ReleaseUtils.printSeparator(listener);
+				ReleaseUtils.printInfoIntoBuildLog("[ERROR] Release Tag " + args.getScmTagName() +
 						"already exists. " + RELEASE_BUILD_ABORTED_MESSAGE, listener);
-				printSeparator(listener);
+				ReleaseUtils.printSeparator(listener);
 				return false;
 			}
 		}
 
 		if (NOT_A_NUMBER.equalsIgnoreCase(args.getReleaseVersion())) {
-			printSeparator(listener);
-			printInfoIntoBuildLog("[ERROR] Version could not be inferred automatically. "
+			ReleaseUtils.printSeparator(listener);
+			ReleaseUtils.printInfoIntoBuildLog("[ERROR] Version could not be inferred automatically. "
 					+ "Check whether the very first build of this job is a release build.", listener);
-			printInfoIntoBuildLog(RELEASE_BUILD_ABORTED_MESSAGE, listener);
-			printSeparator(listener);
+			ReleaseUtils.printInfoIntoBuildLog(RELEASE_BUILD_ABORTED_MESSAGE, listener);
+			ReleaseUtils.printSeparator(listener);
 			return false;
 		}
 		return true;
 	}
-
-	public TextFile getLastReleaseRevisionNumberFile(AbstractProject project) {
-		return new TextFile(new File(project.getRootDir(), LAST_RELEASE_REVISION_NUMBER));
-	}
-
-	public String getLastReleaseRevisionNumber(AbstractProject project) throws IOException {
-		return getLastReleaseRevisionNumberFile(project).read();
-	}
-
 
 	/**
 	 * If the release build is triggered via a time trigger, the arguments will
@@ -403,7 +374,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			build.addAction(args);
 		}
 
-		MavenModuleSet mms = getModuleSet(build);
+		MavenModuleSet mms = ReleaseUtils.getModuleSet(build);
 
 		String rootPomVersion = getRootPomVersion(mms, build, listener);
 		if (rootPomVersion == null) {
@@ -420,7 +391,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			args.setReleaseVersion(releaseVersion);
 		}
 		if (args.getScmTagName() == null) {
-			String scmTag = m2ReleaseAction.computeScmTag(rootPomVersion);
+			String scmTag = Constants.DEFAULT_SCM_TAG_PREFIX + args.getReleaseVersion();
 			String scmCommentPrefix = DEFAULT_SCM_TAG_SUFFIX + "[Jenkins #" + build.getId() + "] " +
 					"[Release " + args.getReleaseVersion() + "] ";
 
@@ -475,9 +446,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 			pomVersion = scmWorkspace.child("pom.xml").act(new PomVersionReader());
 		} catch (IOException e) {
-			printExceptionIntoBuildLog(ERROR_READING_VERSION_FROM_POM_XML, e, listener);
+			ReleaseUtils.printExceptionIntoBuildLog(ERROR_READING_VERSION_FROM_POM_XML, e, listener);
 		} catch (InterruptedException e) {
-			printExceptionIntoBuildLog(ERROR_READING_VERSION_FROM_POM_XML, e, listener);
+			ReleaseUtils.printExceptionIntoBuildLog(ERROR_READING_VERSION_FROM_POM_XML, e, listener);
 		}
 
 		if (pomVersion == null && (mms != null && mms.getRootModule() != null)) {
@@ -489,14 +460,14 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 		if (pomVersion == null) {
 			//try to get it from environment
-			listener.getLogger().println("[M2Release] Getting the pom version by reading the environment variable "
-					+ ENV_POM_VERSION);
+			listener.getLogger().println(
+					"[M2Release] Getting the pom version by reading the environment variable " + ENV_POM_VERSION);
 			try {
 				pomVersion = build.getEnvironment(listener).get(ENV_POM_VERSION);
 			} catch (IOException e) {
-				printExceptionIntoBuildLog("Error reading Pom version from environment. ", e, listener);
+				ReleaseUtils.printExceptionIntoBuildLog("Error reading Pom version from environment. ", e, listener);
 			} catch (InterruptedException e) {
-				printExceptionIntoBuildLog("Error reading Pom version from environment. ", e, listener);
+				ReleaseUtils.printExceptionIntoBuildLog("Error reading Pom version from environment. ", e, listener);
 			}
 		}
 
@@ -568,24 +539,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		this.numberOfReleaseBuildsToKeep = numberOfReleaseBuildsToKeep;
 	}
 
-	private MavenModuleSet getModuleSet(AbstractBuild<?,?> build) {
-		if (build instanceof MavenBuild) {
-			MavenBuild m2Build = (MavenBuild) build;
-			MavenModule mm = m2Build.getProject();
-			MavenModuleSet mmSet = mm.getParent();
-			return mmSet;
-		}
-		else if (build instanceof MavenModuleSetBuild) {
-			MavenModuleSetBuild m2moduleSetBuild = (MavenModuleSetBuild) build;
-			MavenModuleSet mmSet = m2moduleSetBuild.getProject();
-			return mmSet;
-		}
-		else {
-			return null;
-		}
-	}
-
-
 	public static boolean hasReleasePermission(@SuppressWarnings("rawtypes") AbstractProject job) {
 		return job.hasPermission(DescriptorImpl.CREATE_RELEASE);
 	}
@@ -649,20 +602,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		}
 
 		return false;
-	}
-
-	private void printInfoIntoBuildLog(String message, TaskListener listener) {
-		listener.getLogger().println("[WSO2 Maven Release] " + message);
-	}
-
-	private void printSeparator(TaskListener listener) {
-		listener.getLogger().println("------------------------------------------------------------------------");
-		listener.getLogger().println("");
-	}
-
-	private void printExceptionIntoBuildLog(String customMessage, Exception exception, TaskListener taskListener) {
-		taskListener.getLogger().println(customMessage + exception.getMessage());
-		exception.printStackTrace(taskListener.getLogger());
 	}
 
 	/** Recreate the logger on de-serialisation. */
@@ -932,282 +871,6 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 		public Boolean getChangesFound() {
 			return changesFound;
-		}
-
-	}
-
-	class ReleaseEnvironment extends Environment {
-
-		private final String releaseBranch;
-		private final String remoteBranch;
-		private final String remoteRevision;
-		private Launcher launcher;
-
-		public ReleaseEnvironment(String releaseBranch, String remoteBranch, String remoteRevision, Launcher launcher) {
-			this.releaseBranch = releaseBranch;
-			this.remoteBranch = remoteBranch;
-			this.remoteRevision = remoteRevision;
-			this.launcher = launcher;
-		}
-
-		@Override
-		public void buildEnvVars(Map<String, String> env) {
-			if (StringUtils.isNotBlank(releaseEnvVar)) {
-				// inform others that we are doing a release build
-				env.put(releaseEnvVar, "true");
-			}
-		}
-
-		@Override
-		public boolean tearDown(@SuppressWarnings("rawtypes") AbstractBuild bld, BuildListener lstnr)
-				throws IOException, InterruptedException {
-			boolean retVal = true;
-
-			final MavenModuleSet mmSet = getModuleSet(bld);
-			M2ReleaseArgumentsAction args = bld.getAction(M2ReleaseArgumentsAction.class);
-
-			writeLatestReleaseRevisionNumber(bld, lstnr);
-
-			if (args.isCloseNexusStage() && !args.isDryRun() && getDescriptor().getNexusURL() != null) {
-
-				StageClient client = new StageClient(new URL(getDescriptor().getNexusURL()), getDescriptor()
-						.getNexusUser(), getDescriptor().getNexusPassword());
-				try {
-					MavenModule rootModule = mmSet.getRootModule();
-					// TODO grab the version that we have just released...
-					Stage stage = client.getOpenStageID(rootModule.getModuleName().groupId,
-							rootModule.getModuleName().artifactId, args.getReleaseVersion());
-					if (stage != null) {
-						if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
-							lstnr.getLogger().println("[M2Release] Closing Nexus staging repository " + stage);
-							client.closeStage(stage, args.getRepoDescription());
-							lstnr.getLogger().println("[M2Release] Closed Nexus staging repository.");
-
-							/* START WSO2 changes */
-							//release the nexus staging repository
-							if (args.isReleaseNexusStage()) {
-								lstnr.getLogger().println("[WSO2 Maven Release] Releasing Nexus repository " + stage);
-								client.releaseStage(stage, args.getRepoDescription());
-								lstnr.getLogger().println("[WSO2 Maven Release] Released Nexus repository.");
-								printSeparator(lstnr);
-							}
-
-							//merge the release branch into master
-							if (bld.getProject().getScm() instanceof GitSCM) {
-								GitSCM gitSCM = (GitSCM) bld.getProject().getScm();
-								AbstractProject project = bld.getProject();
-
-								final EnvVars environment = GitUtils
-										.getPollEnvironment(project, bld.getWorkspace(), launcher, lstnr);
-								GitClient gitClient = gitSCM
-										.createClient(lstnr, environment, bld, bld.getWorkspace());
-
-								//merge release commits into master
-								List<UserRemoteConfig> userRemoteConfigs = gitSCM.getUserRemoteConfigs();
-								if (userRemoteConfigs.isEmpty()) {
-									lstnr.fatalError("[WSO2 Maven Release] "
-											+ "Could not find the git remote URL for the project. \n");
-								} else if (userRemoteConfigs.get(0).getCredentialsId() == null) {
-									printInfoIntoBuildLog("Credentials are not present in the git configuration", lstnr);
-								}
-
-								//get release branch head commit
-								String remoteUrl = userRemoteConfigs.get(0).getUrl();
-								String releaseBranchHeadCommit = gitClient.revParse(DEFAULT_REF).name();
-
-								//local branch name that will be pushed to #remoteBranch
-								String localBranchToPush = UUID.randomUUID().toString();
-								printInfoIntoBuildLog("Checking out a temp local branch named " + localBranchToPush +
-										" at revision " + remoteRevision, lstnr);
-								gitClient.checkoutBranch(localBranchToPush, remoteRevision);
-								printSeparator(lstnr);
-								try {
-									//get latest commits from the remote branch before pushing to avoid outdated wc error
-									String localFetchBranch = "refs/remotes/origin/" + localBranchToPush;
-									String fetchRefspec = remoteBranch + ":" + localFetchBranch;
-									printInfoIntoBuildLog("Fetching latest changes with refspec: " + fetchRefspec +
-													" before merging the release commits into " + localBranchToPush,
-											lstnr);
-
-									gitClient.fetch_().from(new URIish(remoteUrl), Collections
-											.singletonList(new RefSpec(fetchRefspec))).execute();
-									String latestRemoteCommit = gitClient.revParse(localFetchBranch).getName();
-									ObjectId latestRemoteCommitObject = ObjectId.fromString(latestRemoteCommit);
-									printInfoIntoBuildLog("Merging fetched upstream changes into " + localBranchToPush,
-											lstnr);
-									gitClient.merge().setRevisionToMerge(latestRemoteCommitObject).execute();
-									printSeparator(lstnr);
-								} catch (URISyntaxException e) {
-									lstnr.fatalError("[WSO2 Maven Release] "
-											+ "Could not parse the git remote URL for project: " + remoteUrl);
-									throw new IllegalArgumentException(e);
-								} catch (GitException e) {
-									printExceptionIntoBuildLog("[ERROR] [WSO2 Maven Release] merging the changes. ", e,
-											lstnr);
-									gitClient.checkoutBranch(localBranchToPush, remoteRevision);
-									//todo handle kasung
-								}
-
-								try {
-									//push the whole thing into the original remote branch
-									printInfoIntoBuildLog(
-											"Merging release branch HEAD commit, " + releaseBranchHeadCommit + ", into "
-													+ localBranchToPush, lstnr);
-									//merge release commits
-									gitClient.merge().
-											setRevisionToMerge(ObjectId.fromString(releaseBranchHeadCommit)).execute();
-
-									String refspec = localBranchToPush + ":" + remoteBranch;
-									printInfoIntoBuildLog("Pushing the whole thing into remote.", lstnr);
-									gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
-
-									//if no exceptions, then remove the remote release branch
-									refspec = ":" + releaseBranch;
-									lstnr.getLogger().println();
-									printInfoIntoBuildLog("Deleting release branch from remote.", lstnr);
-									gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
-
-									String headCommitHashAfterMerge = writeLatestReleaseRevisionNumber(bld, lstnr);
-									log.debug("[WSO2 Maven Release] {}-{} : Written the revision {} ", bld.getProject(),
-											bld.getDisplayName(), headCommitHashAfterMerge);
-									printInfoIntoBuildLog(
-											"Stored last release commit hash : " + headCommitHashAfterMerge, lstnr);
-
-									printSeparator(lstnr);
-
-								} catch (URISyntaxException e) {
-									lstnr.fatalError("[WSO2 Maven Release] "
-											+ "Could not parse the git remote URL for project: " + remoteUrl);
-								} catch (GitException e) {
-									//this could fail if merging the release commits lead to a conflict.
-									printExceptionIntoBuildLog("[ERROR] [WSO2 Maven Release] merging the changes. ", e,
-											lstnr);
-									bld.keepLog();
-									throw e;
-									//todo handle kasung
-								}
-							}
-							/* END WSO2 changes */
-						}
-						else {
-							lstnr.getLogger().println("[M2Release] Dropping repository " + stage);
-							client.dropStage(stage);
-							lstnr.getLogger().println("[M2Release] Dropped staging repository.");
-						}
-					}
-					else {
-						retVal = false;
-						lstnr.fatalError("[M2Release] Could not find nexus stage repository for project.\n");
-					}
-				}
-				catch (StageException ex) {
-					lstnr.fatalError("[M2Release] Could not close repository , %1$s\n", ex.getMessage());
-					ex.printStackTrace(lstnr.getLogger());
-					log.error("[M2Release] Could not close repository", ex);
-					retVal = false;
-				}
-
-			}
-
-			if (args.isDryRun()) {
-				lstnr.getLogger().println("[M2Release] its only a dryRun, no need to mark it for keep");
-			}
-			int buildsKept = 0;
-			if (bld.getResult() != null && bld.getResult().isBetterOrEqualTo(Result.SUCCESS) && !args.isDryRun()) {
-				if (numberOfReleaseBuildsToKeep > 0 || numberOfReleaseBuildsToKeep == -1) {
-					// keep this build.
-					lstnr.getLogger().println("[M2Release] assigning keep build to current build.");
-					bld.keepLog();
-					buildsKept++;
-				}
-
-				// the value may have changed since a previous release so go searching...
-				log.debug("looking for extra release builds to lock/unlock.");
-				for (Run run : (RunList<? extends Run>) (bld.getProject().getBuilds())) {
-					log.debug("checking build #{}", run.getNumber());
-					if (isSuccessfulReleaseBuild(run)) {
-						log.info("[WSO2 Maven Release] {} release build #{} was successful.",
-								bld.getProject().getName(), run.getNumber());
-						if (bld.getNumber() != run.getNumber()) { // not sure we still need this check..
-							if (shouldKeepBuildNumber(numberOfReleaseBuildsToKeep, buildsKept)) {
-								buildsKept++;
-								if (!run.isKeepLog()) {
-									lstnr.getLogger().println(
-											"[M2Release] assigning keep build to build " + run.getNumber());
-									run.keepLog(true);
-								}
-							}
-							else {
-								if (run.isKeepLog()) {
-									lstnr.getLogger().println(
-											"[M2Release] removing keep build from build " + run.getNumber());
-									run.keepLog(false);
-								}
-							}
-						}
-					}
-					else {
-						log.debug(
-								"[WSO2 Maven Release] {} build #{} was either a snapshot build or it was not successful.",
-								bld.getProject().getName(), run.getNumber());
-					}
-				}
-			}
-
-			return retVal;
-		}
-
-		/**
-		 * Writes the current head commit hash into jenkins-home/jobs/job-name/lastReleaseRevisionNumber
-		 */
-		private String writeLatestReleaseRevisionNumber(AbstractBuild bld, TaskListener lstnr) {
-			try {
-				//write the latest release revision number
-				SCM scm = bld.getProject().getScm();
-				if (scm instanceof GitSCM) {
-					GitSCM gitSCM = (GitSCM) scm;
-					AbstractProject project = bld.getProject();
-					final EnvVars environment = GitUtils
-							.getPollEnvironment(project, bld.getWorkspace(), launcher, lstnr);
-					GitClient gitClient = gitSCM.createClient(lstnr, environment, bld, bld.getWorkspace());
-					ObjectId objectId = gitClient.revParse(DEFAULT_REF);
-					StringWriter writer = new StringWriter();
-					objectId.copyTo(writer);
-					String headHash = writer.toString();
-
-					TextFile file = getLastReleaseRevisionNumberFile(project);
-					file.write(headHash);
-					return headHash;
-				}
-			} catch (IOException e) {
-				StringWriter sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw)); //todo
-				lstnr.getLogger().println("[WSO2 Maven Release] Error " + e.getMessage() + " " + sw.toString());
-			} catch (Throwable e) {
-				StringWriter sw = new StringWriter(); e.printStackTrace(new PrintWriter(sw)); //todo
-				lstnr.getLogger().println("[WSO2 Maven Release] Error " + e.getMessage() + " " + sw.toString());
-			}
-
-			return "-";
-		}
-
-		/**
-		 * evaluate if the specified build is a successful release build (not including dry runs)
-		 * @param run the run to check
-		 * @return <code>true</code> if this is a successful release build that is not a dry run.
-		 */
-		private boolean isSuccessfulReleaseBuild(Run run) {
-			M2ReleaseBadgeAction a = run.getAction(M2ReleaseBadgeAction.class);
-			if (a != null && !run.isBuilding() && run.getResult().isBetterOrEqualTo(Result.SUCCESS) && !a.isDryRun()) {
-				return true;
-			}
-			return false;
-		}
-
-		private boolean shouldKeepBuildNumber(int numToKeep, int numKept) {
-			if (numToKeep == -1) {
-				return true;
-			}
-			return numKept < numToKeep;
 		}
 
 	}

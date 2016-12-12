@@ -207,15 +207,13 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		return descriptionBuilder.toString();
 	}
 
-	public static final String DEFAULT_SCM_TAG_PREFIX = "v";
-
 	public String computeScmTag() {
 		// maven default is artifact-version. WSO2 uses v<version>
-		return DEFAULT_SCM_TAG_PREFIX + computeReleaseVersion("");
+		return Constants.DEFAULT_SCM_TAG_PREFIX + computeReleaseVersion("");
 	}
 
 	public String computeScmTag(String rootPomVersion) {
-		return DEFAULT_SCM_TAG_PREFIX + computeReleaseVersion(rootPomVersion);
+		return Constants.DEFAULT_SCM_TAG_PREFIX + computeReleaseVersion(rootPomVersion);
 	}
 
 	public String computeNextVersion() {
