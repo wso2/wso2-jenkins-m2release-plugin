@@ -28,6 +28,7 @@ import hudson.util.TextFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 
 public class ReleaseUtils {
 
@@ -52,8 +53,8 @@ public class ReleaseUtils {
      * Show a info log in the Jenkins build job's console log
      *
      */
-    public static void printInfoIntoBuildLog(String message, TaskListener listener) {
-        listener.getLogger().println("[WSO2 Maven Release] " + message);
+    public static void printInfoIntoBuildLog(String message, PrintStream logger) {
+        logger.println("[WSO2 Maven Release] " + message);
     }
 
     public static void printSeparator(TaskListener listener) {

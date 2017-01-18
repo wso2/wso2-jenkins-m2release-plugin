@@ -303,7 +303,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			M2ReleaseArgumentsAction args) throws IOException, InterruptedException {
 		if (args == null) {
 			ReleaseUtils.printSeparator(listener);
-			ReleaseUtils.printInfoIntoBuildLog(RELEASE_BUILD_ABORTED_MESSAGE, listener);
+			ReleaseUtils.printInfoIntoBuildLog(RELEASE_BUILD_ABORTED_MESSAGE, listener.getLogger());
 			ReleaseUtils.printSeparator(listener);
 			return false;
 		}
@@ -331,7 +331,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				if (aRemoteBranch.getName().equalsIgnoreCase(releaseBranch)) {
 					ReleaseUtils.printSeparator(listener);
 					ReleaseUtils.printInfoIntoBuildLog("[ERROR] Release branch " + releaseBranch +
-							" already exists. " + RELEASE_BUILD_ABORTED_MESSAGE, listener);
+							" already exists. " + RELEASE_BUILD_ABORTED_MESSAGE, listener.getLogger());
 					ReleaseUtils.printSeparator(listener);
 					return false;
 				}
@@ -341,7 +341,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			if (gitClient.tagExists(args.getScmTagName())) {
 				ReleaseUtils.printSeparator(listener);
 				ReleaseUtils.printInfoIntoBuildLog("[ERROR] Release Tag " + args.getScmTagName() +
-						"already exists. " + RELEASE_BUILD_ABORTED_MESSAGE, listener);
+						"already exists. " + RELEASE_BUILD_ABORTED_MESSAGE, listener.getLogger());
 				ReleaseUtils.printSeparator(listener);
 				return false;
 			}
@@ -350,8 +350,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		if (NOT_A_NUMBER.equalsIgnoreCase(args.getReleaseVersion())) {
 			ReleaseUtils.printSeparator(listener);
 			ReleaseUtils.printInfoIntoBuildLog("[ERROR] Version could not be inferred automatically. "
-					+ "Check whether the very first build of this job is a release build.", listener);
-			ReleaseUtils.printInfoIntoBuildLog(RELEASE_BUILD_ABORTED_MESSAGE, listener);
+					+ "Check whether the very first build of this job is a release build.", listener.getLogger());
+			ReleaseUtils.printInfoIntoBuildLog(RELEASE_BUILD_ABORTED_MESSAGE, listener.getLogger());
 			ReleaseUtils.printSeparator(listener);
 			return false;
 		}

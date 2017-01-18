@@ -183,22 +183,21 @@ public class ReleaseEnvironment extends BuildWrapper.Environment {
         return true;
     }
 
-    private void finalizeSCMRepo(AbstractBuild bld, BuildListener lstnr) throws IOException, InterruptedException {
+    private void finalizeSCMRepo(AbstractBuild bld, BuildListener buildListener) throws IOException, InterruptedException {
         //merge the release branch into master
         if (bld.getProject().getScm() instanceof GitSCM) {
             GitSCM gitSCM = (GitSCM) bld.getProject().getScm();
             AbstractProject project = bld.getProject();
 
-            final EnvVars environment = GitUtils.getPollEnvironment(project, bld.getWorkspace(), launcher, lstnr);
-            GitClient gitClient = gitSCM.createClient(lstnr, environment, bld, bld.getWorkspace());
+            final EnvVars environment = GitUtils.getPollEnvironment(project, bld.getWorkspace(), launcher, buildListener);
+            GitClient gitClient = gitSCM.createClient(buildListener, environment, bld, bld.getWorkspace());
             M2ReleaseArgumentsAction args = bld.getAction(M2ReleaseArgumentsAction.class);
 
             List<UserRemoteConfig> userRemoteConfigs = gitSCM.getUserRemoteConfigs();
             if (userRemoteConfigs.isEmpty()) {
-                lstnr.fatalError("[WSO2 Maven Release] "
-                        + "Could not find the git remote URL for the project. \n");
+                buildListener.fatalError("[WSO2 Maven Release] " + "Could not find the git remote URL for the project. \n");
             } else if (userRemoteConfigs.get(0).getCredentialsId() == null) {
-                ReleaseUtils.printInfoIntoBuildLog("Credentials are not present in the git configuration", lstnr);
+                ReleaseUtils.printInfoIntoBuildLog("Credentials are not present in the git configuration", buildListener.getLogger());
             }
 
             //get release branch head commit
@@ -210,29 +209,32 @@ public class ReleaseEnvironment extends BuildWrapper.Environment {
             try {
                 // 1) handle build failures
                 //we delete the git tag, but keep the release branch as it is in case it needs to be reviewed later
+                ReleaseUtils.printSeparator(buildListener);
+                ReleaseUtils.printInfoIntoBuildLog("[WSO2 Maven Release] Build Result: " + bld.getResult(),
+                        buildListener.getLogger());
                 if (bld.getResult() == null || !bld.getResult().isBetterOrEqualTo(Result.SUCCESS)) {
                     String scmTag = args.getScmTagName();
-                    lstnr.getLogger().println("[WSO2 Maven Release] Dropping Git Tag: " + scmTag
+                    buildListener.getLogger().println("[WSO2 Maven Release] Dropping Git Tag: " + scmTag
                             + ". Reason: " + bld.getResult() + " build.");
 
                     //if exceptions, then remove the remote release tag
                     String refspec = ":" + "refs/tags/" + scmTag; // :refs/tags/v4.4.10
-                    lstnr.getLogger().println();
-                    ReleaseUtils.printInfoIntoBuildLog("Deleting release tag from remote.", lstnr);
+                    buildListener.getLogger().println();
+                    ReleaseUtils.printInfoIntoBuildLog("Deleting release tag from remote.", buildListener.getLogger());
                     gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
 
-                    lstnr.getLogger().println("[WSO2 Maven Release] Dropped git tag - " + scmTag);
+                    buildListener.getLogger().println("[WSO2 Maven Release] Dropped git tag - " + scmTag);
                     return;
                 }
             } catch (URISyntaxException e) {
-                lstnr.fatalError("[WSO2 Maven Release] " + "Could not parse the git remote URL for project: "
-                                + remoteUrl);
+                buildListener.fatalError(
+                        "[WSO2 Maven Release] " + "Could not parse the git remote URL for project: " + remoteUrl);
                 bld.keepLog();
                 throw new IllegalArgumentException(e.getMessage(), e);
             } catch (GitException e) {
                 //this could fail if merging the release commits lead to a conflict.
                 ReleaseUtils.printExceptionIntoBuildLog(
-                        "[ERROR] [WSO2 Maven Release] merging the changes. ", e, lstnr);
+                        "[ERROR] [WSO2 Maven Release] merging the changes. ", e, buildListener);
                 bld.keepLog();
                 throw e;
             }
@@ -242,32 +244,32 @@ public class ReleaseEnvironment extends BuildWrapper.Environment {
 
                 // 2.1) checkout a temporary release branch for git push to remote
                 ReleaseUtils.printInfoIntoBuildLog("Checking out a temp local branch named " + localBranchToPush +
-                        " at revision " + remoteRevision, lstnr);
+                        " at revision " + remoteRevision, buildListener.getLogger());
                 gitClient.checkoutBranch(localBranchToPush, remoteRevision);
-                ReleaseUtils.printSeparator(lstnr);
+                ReleaseUtils.printSeparator(buildListener);
 
                 String localFetchBranch = "refs/remotes/origin/" + localBranchToPush;
                 String fetchRefspec = remoteBranch + ":" + localFetchBranch;
                 ReleaseUtils.printInfoIntoBuildLog(
                         "Fetching latest changes with refspec: " + fetchRefspec +
                                 " before merging the release commits into " + localBranchToPush,
-                        lstnr);
+                        buildListener.getLogger());
 
                 // 2.2) get latest commits from the remote branch before pushing to avoid outdated wc error
                     gitClient.fetch_().from(new URIish(remoteUrl), Collections.singletonList(new RefSpec(fetchRefspec))).execute();
                 String latestRemoteCommit = gitClient.revParse(localFetchBranch).getName();
                 ObjectId latestRemoteCommitObject = ObjectId.fromString(latestRemoteCommit);
                 ReleaseUtils.printInfoIntoBuildLog(
-                        "Merging fetched upstream changes into " + localBranchToPush, lstnr);
+                        "Merging fetched upstream changes into " + localBranchToPush, buildListener.getLogger());
                 gitClient.merge().setRevisionToMerge(latestRemoteCommitObject).execute();
-                ReleaseUtils.printSeparator(lstnr);
+                ReleaseUtils.printSeparator(buildListener);
             } catch (URISyntaxException e) {
-                lstnr.fatalError("[WSO2 Maven Release] "
-                        + "Could not parse the git remote URL for project: " + remoteUrl);
+                buildListener.fatalError(
+                        "[WSO2 Maven Release] " + "Could not parse the git remote URL for project: " + remoteUrl);
                 throw new IllegalArgumentException(e);
             } catch (GitException e) {
                 ReleaseUtils.printExceptionIntoBuildLog(
-                        "[ERROR] [WSO2 Maven Release] merging the changes. ", e, lstnr);
+                        "[ERROR] [WSO2 Maven Release] merging the changes. ", e, buildListener);
                 gitClient.checkoutBranch(localBranchToPush, remoteRevision);
                 //todo kasung does this work?
             }
@@ -275,37 +277,38 @@ public class ReleaseEnvironment extends BuildWrapper.Environment {
             try {
                 // 3) merge release commits into that local branch
                 ReleaseUtils.printInfoIntoBuildLog(
-                        "Merging release branch HEAD commit, " + releaseBranchHeadCommit + ", into branch " + localBranchToPush, lstnr);
+                        "Merging release branch HEAD commit, " + releaseBranchHeadCommit + ", into branch " +
+                                localBranchToPush, buildListener.getLogger());
                 gitClient.merge().
                         setRevisionToMerge(ObjectId.fromString(releaseBranchHeadCommit)).execute();
 
                 // 3.1) push the whole thing into the original remote branch
                 String refspec = localBranchToPush + ":" + remoteBranch;
-                ReleaseUtils.printInfoIntoBuildLog("Pushing the whole thing into remote.", lstnr);
+                ReleaseUtils.printInfoIntoBuildLog("Pushing the whole thing into remote.", buildListener.getLogger());
                 gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
 
                 // 3.2) if no exceptions, then remove the remote release branch
                 refspec = ":" + releaseBranch;
-                lstnr.getLogger().println();
-                ReleaseUtils.printInfoIntoBuildLog("Deleting release branch from remote.", lstnr);
+                buildListener.getLogger().println();
+                ReleaseUtils.printInfoIntoBuildLog("Deleting release branch from remote.", buildListener.getLogger());
                 gitClient.push().to(new URIish(remoteUrl)).ref(refspec).execute();
 
-                String headCommitHashAfterMerge = writeLatestReleaseRevisionNumber(bld, lstnr);
+                String headCommitHashAfterMerge = writeLatestReleaseRevisionNumber(bld, buildListener);
                 log.debug("[WSO2 Maven Release] {}-{} : Written the revision {} ", bld.getProject(),
                         bld.getDisplayName(), headCommitHashAfterMerge);
                 ReleaseUtils.printInfoIntoBuildLog("Stored last release commit hash : " + headCommitHashAfterMerge,
-                        lstnr);
+                        buildListener.getLogger());
 
-                ReleaseUtils.printSeparator(lstnr);
+                ReleaseUtils.printSeparator(buildListener);
 
             } catch (URISyntaxException e) {
-                lstnr.fatalError("[WSO2 Maven Release] "
-                        + "Could not parse the git remote URL for project: " + remoteUrl);
+                buildListener.fatalError(
+                        "[WSO2 Maven Release] " + "Could not parse the git remote URL for project: " + remoteUrl);
                 throw new IllegalArgumentException(e.getMessage(), e);
             } catch (GitException e) {
                 //this could fail if merging the release commits lead to a conflict.
                 ReleaseUtils.printExceptionIntoBuildLog(
-                        "[ERROR] [WSO2 Maven Release] merging the changes. ", e, lstnr);
+                        "[ERROR] [WSO2 Maven Release] merging the changes. ", e, buildListener);
                 bld.keepLog();
                 throw e;
                 //todo handle kasung
