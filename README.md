@@ -25,4 +25,4 @@ User documentation of the upstream plugin can be found on the [wiki]
 [MIT Licence]: https://github.com/jenkinsci/m2release-plugin/raw/master/LICENCE.txt
 [design]: continous-delivery-release-sequence-1.1.png
 [m2release-plugin]: https://github.com/jenkinsci/m2release-plugin
-[design and configuration guide]: https://docs.google.com/document/d/1BGG7ewYH6_qFaxVroe_-0p4daqiSWN6S2ooLxKpCh8I/edit#heading=h.sjlr0jbn1vbf
+[design and configuration guide]: Continuous-Delivery-with-Jenkins-Releases.pdf
