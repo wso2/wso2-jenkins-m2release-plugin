@@ -257,6 +257,12 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		StaplerRequestWrapper requestWrapper = new StaplerRequestWrapper(req);
 
 		final boolean closeNexusStage = requestWrapper.containsKey("closeNexusStage"); //$NON-NLS-1$
+		final boolean isCloseNexusStage;
+		if (closeNexusStage) {
+			isCloseNexusStage = Boolean.parseBoolean(requestWrapper.getString("closeNexusStage"));
+		} else {
+			isCloseNexusStage = true;
+		}
 		final String repoDescription = closeNexusStage ? requestWrapper.getString("repoDescription") : ""; //$NON-NLS-1$
 		final boolean specifyScmCredentials = requestWrapper.containsKey("specifyScmCredentials"); //$NON-NLS-1$
 		final String scmUsername = specifyScmCredentials ? requestWrapper.getString("scmUsername") : null; //$NON-NLS-1$
@@ -323,7 +329,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		arguments.setDevelopmentVersion(developmentVersion);
 		// TODO - re-implement versions on specific modules.
 
-		arguments.setCloseNexusStage(closeNexusStage);
+		arguments.setCloseNexusStage(isCloseNexusStage);
 		arguments.setRepoDescription(repoDescription);
 		arguments.setScmUsername(scmUsername);
 		arguments.setScmPassword(scmPassword);
