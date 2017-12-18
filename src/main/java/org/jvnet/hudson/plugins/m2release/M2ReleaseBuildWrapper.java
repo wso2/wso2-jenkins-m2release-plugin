@@ -166,7 +166,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public Environment setUp(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher,
 			final BuildListener listener) throws IOException, InterruptedException {
 
-		if (!isReleaseBuild(build) && !isTriggeredByGitPush(build)) {
+		if (!isReleaseBuild(build) && !isTriggeredByGitPush(build) && !isPeriodicalRelease(build)) {
 			log.debug("Build trigger causes for {} : {}", build.getProject().getName(), build.getCauses());
 			// we are not performing a release so don't need a custom tearDown.
 			return new DefaultEnvironment();
@@ -256,6 +256,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		/* END WSO2 changes */
 
 		return new ReleaseEnvironment(this, releaseBranch, remoteBranch, remoteRevision, launcher);
+	}
+
+	private boolean isPeriodicalRelease( AbstractBuild build) {
+		return (build.getCause(ReleaseTrigger.ReleaseTriggerCause.class) != null);
 	}
 
 	private String getRemoteBranch(String branch) {
