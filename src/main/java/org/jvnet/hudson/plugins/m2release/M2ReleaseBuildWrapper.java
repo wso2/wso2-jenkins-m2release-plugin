@@ -99,7 +99,7 @@ import javax.xml.xpath.XPathFactory;
  * Wraps a {@link MavenBuild} to be able to run the <a
  * href="http://maven.apache.org/plugins/maven-release-plugin/">maven release plugin</a> on demand, with the
  * ability to auto close a Nexus Pro Staging Repo
- * 
+ *
  * @author James Nord
  * @author Dominik Bartholdi
  * @version 0.3
@@ -121,7 +121,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	/** For backwards compatibility with older configurations. @deprecated */
 	@Deprecated
 	public transient boolean              defaultVersioningMode;
-	
+
 	private String                        scmUserEnvVar                = "";
 	private String                        scmPasswordEnvVar            = "";
 	private String                        releaseEnvVar                = DescriptorImpl.DEFAULT_RELEASE_ENVVAR;
@@ -130,7 +130,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
 	public boolean                        selectScmCredentials         = DescriptorImpl.DEFAULT_SELECT_SCM_CREDENTIALS;
-	public boolean                            enableProduct			= DescriptorImpl.DEFAULT_ENABLE_PRODUCT;
+	public boolean                        enableProduct			       = DescriptorImpl.DEFAULT_ENABLE_PRODUCT;
 	public int                            numberOfReleaseBuildsToKeep  = DescriptorImpl.DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP;
 
 	@DataBoundConstructor
@@ -214,8 +214,10 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		listener.getLogger().println("[WSO2 Maven Release]  SCM Tag Name: " + args.getScmTagName());
 		listener.getLogger().println("[WSO2 Maven Release]  Next Development Version: " + args.getDevelopmentVersion());
 		listener.getLogger().println("[WSO2 Maven Release]  Close Nexus Staging? " + args.isCloseNexusStage()); //global config
+        listener.getLogger().println("[WSO2 Maven Release] Product Release: "+(isPeriodicalRelease(build) && enableProduct));
 
-		//validate
+
+        //validate
 		if (!validateRelease(build, launcher, listener, args)) {
 			return new DefaultEnvironment();
 		}
@@ -260,6 +262,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		return new ReleaseEnvironment(this, releaseBranch, remoteBranch, remoteRevision, launcher);
 	}
 
+    /**
+     * Identify whether the trigger is caused by a scheduled Release
+     * @param build
+     * @return
+     */
 	private boolean isPeriodicalRelease( AbstractBuild build) {
 		return (build.getCause(ReleaseTrigger.ReleaseTriggerCause.class) != null);
 	}
@@ -536,11 +543,11 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public void setSelectAppendHudsonUsername(boolean selectAppendHudsonUsername) {
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
 	}
-	
+
 	public int getNumberOfReleaseBuildsToKeep() {
 		return numberOfReleaseBuildsToKeep;
 	}
-	
+
 	public void setNumberOfReleaseBuildsToKeep(int numberOfReleaseBuildsToKeep) {
 		this.numberOfReleaseBuildsToKeep = numberOfReleaseBuildsToKeep;
 	}
@@ -561,19 +568,19 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public String getScmUserEnvVar() {
 		return scmUserEnvVar;
 	}
-	
+
 	public String getScmPasswordEnvVar() {
 		return scmPasswordEnvVar;
 	}
-	
+
 	public String getReleaseGoals() {
 		return StringUtils.isBlank(releaseGoals) ? DescriptorImpl.DEFAULT_RELEASE_GOALS : releaseGoals;
 	}
-	
+
 	public String getDryRunGoals() {
 		return StringUtils.isBlank(dryRunGoals) ? DescriptorImpl.DEFAULT_DRYRUN_GOALS : dryRunGoals;
 	}
-	
+
 
 	/**
 	 * Evaluate if the current build should be a release build.
@@ -635,7 +642,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	@Extension
 	public static class DescriptorImpl extends BuildWrapperDescriptor {
-		
+
 		public static final Permission CREATE_RELEASE;
 
 		static {
@@ -650,15 +657,15 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 				Array.set(psArr, 0, f.get(null));
 				f = permissionScopeClass.getDeclaredField("ITEM");
 				Array.set(psArr, 1, f.get(null));
-				
-				Constructor<Permission> ctor = Permission.class.getConstructor(PermissionGroup.class, 
-						String.class, 
-						Localizable.class, 
-						Permission.class, 
+
+				Constructor<Permission> ctor = Permission.class.getConstructor(PermissionGroup.class,
+						String.class,
+						Localizable.class,
+						Permission.class,
 //						boolean.class,
 						permissionScopeClass);
 						//permissionScopes.getClass());
-				tmpPerm = ctor.newInstance(Item.PERMISSIONS, 
+				tmpPerm = ctor.newInstance(Item.PERMISSIONS,
 				                           "Release",
 				                            Messages._CreateReleasePermission_Description(),
 				                            Hudson.ADMINISTER,
@@ -719,7 +726,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		private String  nexusURL      = null;
 		private String  nexusUser     = "deployment";                                    //$NON-NLS-1$
 		private String  nexusPassword = "deployment123";                                 //$NON-NLS-1$
-		
+
 
 
 		public DescriptorImpl() {
@@ -780,7 +787,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		/**
 		 * Checks if the Nexus URL exists and we can authenticate against it.
 		 */
-		public FormValidation doUrlCheck(@QueryParameter String urlValue, 
+		public FormValidation doUrlCheck(@QueryParameter String urlValue,
 		                                 final @QueryParameter String usernameValue,
 		                                 final @QueryParameter String passwordValue) throws IOException,
 		                                                                      ServletException {
@@ -789,7 +796,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			if (!Hudson.getInstance().hasPermission(Hudson.ADMINISTER)) {
 				return FormValidation.ok();
 			}
-			
+
 			urlValue = Util.fixEmptyAndTrim(urlValue);
 			if (urlValue == null) {
 				return FormValidation.ok();
@@ -816,7 +823,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			catch (StageException ex) {
 				FormValidation stageError = FormValidation.error(ex.getMessage());
 				stageError.initCause(ex);
-				return stageError; 
+				return stageError;
 			}
 			return FormValidation.ok();
 		}
