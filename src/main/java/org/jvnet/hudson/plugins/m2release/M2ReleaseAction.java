@@ -465,9 +465,12 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	 *             if the version does not end with "-SNAPSHOT"
 	 */
 	private void enforceDeveloperVersion(String version) throws IllegalArgumentException {
-		if (!enableProduct && !version.endsWith("-SNAPSHOT")) {
-			throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Developer Version (%s) is not a valid version (it must end with \"-SNAPSHOT\")",
-					version));
+
+		if(!enableProduct){
+			if ( !version.endsWith("-SNAPSHOT")) {
+				throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Developer Version (%s) is not a valid version (it must end with \"-SNAPSHOT\")",
+						version));
+			}
 		}else {
 			Matcher matcher = ProductVersionInfo.PRODUCT_VERSION_PATTERN.matcher(version);
 			if (!matcher.matches()){
