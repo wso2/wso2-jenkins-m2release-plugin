@@ -54,6 +54,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
 import javax.servlet.ServletException;
 
 /**
@@ -71,8 +72,8 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	private boolean selectCustomScmTag = false;
 	private boolean selectAppendHudsonUsername;
 	private boolean selectScmCredentials;
-
-	public M2ReleaseAction(MavenModuleSet project, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials) {
+	private boolean enableProduct = false;
+	public M2ReleaseAction(MavenModuleSet project, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials,boolean enableProduct) {
 		this.project = project;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
@@ -82,6 +83,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			// about the stuff we are not able to compute
 			this.selectCustomScmTag = true;
 		}
+		this.enableProduct = enableProduct;
 	}
 
 	public List<ParameterDefinition> getParameterDefinitions() {
@@ -162,7 +164,12 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		}
 
 		try {
-			DefaultVersionInfo dvi = new DefaultVersionInfo(rootPomVersion);
+			DefaultVersionInfo dvi =null ;
+			if(!enableProduct){
+				dvi = new DefaultVersionInfo(rootPomVersion);
+			}else {
+				dvi = new ProductVersionInfo(rootPomVersion);
+			}
 			version = dvi.getReleaseVersionString();
 		} catch (VersionParseException vpEx) {
 			LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
@@ -233,7 +240,12 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 
 		String version = "NaN-SNAPSHOT";
 		try {
-			DefaultVersionInfo dvi = new DefaultVersionInfo(rootPomVersion);
+			DefaultVersionInfo dvi =null ;
+			if(!enableProduct){
+				dvi = new DefaultVersionInfo(rootPomVersion);
+			}else {
+				dvi = new ProductVersionInfo(rootPomVersion);
+			}
 			version = dvi.getNextVersion().getSnapshotVersionString();
 		} catch (Exception vpEx) {
 			LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
@@ -448,14 +460,20 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	/**
 	 * Enforces that the developer version is actually a developer version and
 	 * ends with "-SNAPSHOT".
-	 * 
+	 * For product, enforces that the developer version ends with "-updateX-SNAPSHOT"
 	 * @throws IllegalArgumentException
 	 *             if the version does not end with "-SNAPSHOT"
 	 */
 	private void enforceDeveloperVersion(String version) throws IllegalArgumentException {
-		if (!version.endsWith("-SNAPSHOT")) {
+		if (!enableProduct && !version.endsWith("-SNAPSHOT")) {
 			throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Developer Version (%s) is not a valid version (it must end with \"-SNAPSHOT\")",
 					version));
+		}else {
+			Matcher matcher = ProductVersionInfo.PRODUCT_VERSION_PATTERN.matcher(version);
+			if (!matcher.matches()){
+				throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Developer Version (%s) is not a valid version (it must end with \"-updateX-SNAPSHOT\")",
+						version));
+			}
 		}
 	}
 

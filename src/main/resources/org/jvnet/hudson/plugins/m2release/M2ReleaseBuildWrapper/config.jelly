@@ -29,7 +29,10 @@
 	<f:entry title="Preselect 'Specify SCM login/password'" help="/plugin/m2release/help-projectConfig-selectScmCredentials.html">
 		<f:checkbox name="selectScmCredentials" checked="${h.defaulted(instance.selectScmCredentials,descriptor.DEFAULT_SELECT_SCM_CREDENTIALS)}"/>
 	</f:entry>
-	
+
+	<f:entry title="Product" help="/plugin/m2release/help-projectEnableProduct.html">
+		<f:checkbox name="enableProduct" checked="${h.defaulted(instance.enableProduct,descriptor.DEFAULT_ENABLE_PRODUCT)}"/>
+	</f:entry>
 	<f:advanced>
 		<f:entry title="Release environment variable" help="/plugin/m2release/help-projectConfig-releaseEnvVar.html">
 			<f:textbox field="releaseEnvVar" value="${h.defaulted(instance.releaseEnvVar,descriptor.DEFAULT_RELEASE_ENVVAR)}"/>

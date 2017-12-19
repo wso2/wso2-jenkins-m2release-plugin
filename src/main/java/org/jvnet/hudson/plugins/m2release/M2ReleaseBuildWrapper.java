@@ -130,11 +130,12 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
 	public boolean                        selectScmCredentials         = DescriptorImpl.DEFAULT_SELECT_SCM_CREDENTIALS;
-	
+	public boolean                            enableProduct			= DescriptorImpl.DEFAULT_ENABLE_PRODUCT;
 	public int                            numberOfReleaseBuildsToKeep  = DescriptorImpl.DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP;
 
 	@DataBoundConstructor
-	public M2ReleaseBuildWrapper(String releaseGoals, String dryRunGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, String releaseEnvVar, String scmUserEnvVar, String scmPasswordEnvVar, int numberOfReleaseBuildsToKeep) {
+	public M2ReleaseBuildWrapper(String releaseGoals, String dryRunGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername,
+								 boolean selectScmCredentials, String releaseEnvVar, String scmUserEnvVar, String scmPasswordEnvVar, int numberOfReleaseBuildsToKeep, boolean enableProduct) {
 		super();
 		this.releaseGoals = releaseGoals;
 		this.dryRunGoals = dryRunGoals;
@@ -145,6 +146,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		this.scmUserEnvVar = scmUserEnvVar;
 		this.scmPasswordEnvVar = scmPasswordEnvVar;
 		this.numberOfReleaseBuildsToKeep = numberOfReleaseBuildsToKeep;
+		this.enableProduct = enableProduct;
 	}
 
 	class DefaultEnvironment extends Environment {
@@ -385,7 +387,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			return args;
 		}
 
-		M2ReleaseAction m2ReleaseAction = new M2ReleaseAction(mms, false, false, false);
+		M2ReleaseAction m2ReleaseAction = new M2ReleaseAction(mms, false, false, false, enableProduct);
 		if (args.getDevelopmentVersion() == null) {
 			String nextDevelopmentVersion = m2ReleaseAction.computeNextVersion(rootPomVersion);
 			args.setDevelopmentVersion(nextDevelopmentVersion);
@@ -616,7 +618,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	@Override
 	public Action getProjectAction(@SuppressWarnings("rawtypes") AbstractProject job) {
-		return new M2ReleaseAction((MavenModuleSet) job, selectCustomScmCommentPrefix, selectAppendHudsonUsername, selectScmCredentials);
+		return new M2ReleaseAction((MavenModuleSet) job, selectCustomScmCommentPrefix, selectAppendHudsonUsername, selectScmCredentials,enableProduct);
 	}
 
 	/**
@@ -710,6 +712,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		public static final boolean    DEFAULT_SELECT_SCM_CREDENTIALS           = false;
 
 		public static final int        DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP = 1;
+		//Product release changes
+		public static final boolean DEFAULT_ENABLE_PRODUCT = false ;
 
 		private boolean nexusSupport  = false;
 		private String  nexusURL      = null;
