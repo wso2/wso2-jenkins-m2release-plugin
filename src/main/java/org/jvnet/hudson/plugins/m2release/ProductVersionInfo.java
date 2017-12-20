@@ -17,7 +17,5 @@ public class ProductVersionInfo extends DefaultVersionInfo{
         }
     }
 
-    public static void main(String[] args) {
-        System.out.println("");
-    }
+
 }
