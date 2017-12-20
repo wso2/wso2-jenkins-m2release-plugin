@@ -214,7 +214,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		listener.getLogger().println("[WSO2 Maven Release]  SCM Tag Name: " + args.getScmTagName());
 		listener.getLogger().println("[WSO2 Maven Release]  Next Development Version: " + args.getDevelopmentVersion());
 		listener.getLogger().println("[WSO2 Maven Release]  Close Nexus Staging? " + args.isCloseNexusStage()); //global config
-        listener.getLogger().println("[WSO2 Maven Release] Product Release: "+(isPeriodicalRelease(build) && enableProduct));
+        listener.getLogger().println("[WSO2 Maven Release] Weekly Product Release enabled: "+(isPeriodicalRelease(build) && enableProduct));
 
 
         //validate
