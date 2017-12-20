@@ -18,8 +18,4 @@ public class ProductVersionInfo extends DefaultVersionInfo{
     }
 
 
-    public static void main(String[] args) {
-        Matcher m=PRODUCT_VERSION_PATTERN.matcher("1.0.32-update9-SNAPSHOT");
-        System.out.println(m.matches());
-    }
 }
