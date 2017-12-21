@@ -474,7 +474,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		}else {
 			Matcher matcher = ProductVersionInfo.PRODUCT_VERSION_PATTERN.matcher(version);
 			if (!matcher.matches()){
-				throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Developer Version (%s) is not a valid version (it must end with \"-updateX-SNAPSHOT\")",
+				throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Developer Version (%s) is not a valid version (it must end with \"-updateX-SNAPSHOT\" where X>0) ",
 						version));
 			}
 		}
