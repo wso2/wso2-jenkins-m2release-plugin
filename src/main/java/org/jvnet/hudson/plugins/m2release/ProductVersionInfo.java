@@ -6,6 +6,9 @@ import org.apache.maven.shared.release.versions.VersionParseException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * This class holds the logic for Product version upgrading. Constructor checks whether the given version is in the correct pattern
+ */
 public class ProductVersionInfo extends DefaultVersionInfo{
 
     public final static Pattern PRODUCT_VERSION_PATTERN = Pattern.compile("(.*)((([-_]update)([1-9]+)(\\d*))([-_]SNAPSHOT))$");

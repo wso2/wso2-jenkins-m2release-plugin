@@ -29,6 +29,9 @@ import hudson.model.Cause;
 import hudson.triggers.TimerTrigger;
 import org.kohsuke.stapler.DataBoundConstructor;
 
+/**
+ * This class holds the configuration of periodical release and creating a cron job
+ */
 public class ReleaseTrigger extends TimerTrigger {
     @DataBoundConstructor
     public ReleaseTrigger(String spec) throws ANTLRException {
