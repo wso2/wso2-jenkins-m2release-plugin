@@ -179,7 +179,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
             }
             version = dvi.getReleaseVersionString();
         } catch (VersionParseException vpEx) {
-			LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
+			LOGGER.log(Level.WARNING, "Failed to compute Release version.", vpEx);
 			version = rootPomVersion.replace("-SNAPSHOT", "");
 		}
 
@@ -255,7 +255,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			}
 			version = dvi.getNextVersion().getSnapshotVersionString();
 		} catch (Exception vpEx) {
-			LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
+			LOGGER.log(Level.WARNING, "Failed to compute next development version.", vpEx);
 		}
 
 		return version;

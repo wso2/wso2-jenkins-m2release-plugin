@@ -62,5 +62,4 @@ public class TimerBasedReleaseTrigger extends TimerTrigger {
             return 20;
         }
     }
-
 }
