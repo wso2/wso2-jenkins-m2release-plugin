@@ -130,12 +130,12 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
 	public boolean                        selectScmCredentials         = DescriptorImpl.DEFAULT_SELECT_SCM_CREDENTIALS;
-	public boolean                        enableProduct			       = DescriptorImpl.DEFAULT_ENABLE_PRODUCT;
+	public boolean 							isProduct					 = DescriptorImpl.DEFAULT_IS_PRODUCT;
 	public int                            numberOfReleaseBuildsToKeep  = DescriptorImpl.DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP;
 
 	@DataBoundConstructor
 	public M2ReleaseBuildWrapper(String releaseGoals, String dryRunGoals, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername,
-								 boolean selectScmCredentials, String releaseEnvVar, String scmUserEnvVar, String scmPasswordEnvVar, int numberOfReleaseBuildsToKeep, boolean enableProduct) {
+								 boolean selectScmCredentials, String releaseEnvVar, String scmUserEnvVar, String scmPasswordEnvVar, int numberOfReleaseBuildsToKeep, boolean isProduct) {
 		super();
 		this.releaseGoals = releaseGoals;
 		this.dryRunGoals = dryRunGoals;
@@ -146,7 +146,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		this.scmUserEnvVar = scmUserEnvVar;
 		this.scmPasswordEnvVar = scmPasswordEnvVar;
 		this.numberOfReleaseBuildsToKeep = numberOfReleaseBuildsToKeep;
-		this.enableProduct = enableProduct;
+		this.isProduct = isProduct;
 	}
 
 	class DefaultEnvironment extends Environment {
@@ -214,7 +214,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		listener.getLogger().println("[WSO2 Maven Release]  SCM Tag Name: " + args.getScmTagName());
 		listener.getLogger().println("[WSO2 Maven Release]  Next Development Version: " + args.getDevelopmentVersion());
 		listener.getLogger().println("[WSO2 Maven Release]  Close Nexus Staging? " + args.isCloseNexusStage()); //global config
-        listener.getLogger().println("[WSO2 Maven Release] Weekly Product Release enabled: "+(isPeriodicalRelease(build) && enableProduct));
+		listener.getLogger().println("[WSO2 Maven Release] Is a Product Release: " + isProduct);
 
 
         //validate
@@ -267,8 +267,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
      * @param build
      * @return
      */
-	private boolean isPeriodicalRelease( AbstractBuild build) {
-		return (build.getCause(ReleaseTrigger.ReleaseTriggerCause.class) != null);
+	private boolean isPeriodicalRelease(AbstractBuild build) {
+		return (build.getCause(TimerBasedReleaseTrigger.TimerBasedReleaseTriggerCause.class) != null);
 	}
 
 	private String getRemoteBranch(String branch) {
@@ -394,7 +394,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			return args;
 		}
 
-		M2ReleaseAction m2ReleaseAction = new M2ReleaseAction(mms, false, false, false, enableProduct);
+		M2ReleaseAction m2ReleaseAction = new M2ReleaseAction(mms, false, false, false, isProduct);
 		if (args.getDevelopmentVersion() == null) {
 			String nextDevelopmentVersion = m2ReleaseAction.computeNextVersion(rootPomVersion);
 			args.setDevelopmentVersion(nextDevelopmentVersion);
@@ -625,7 +625,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 	@Override
 	public Action getProjectAction(@SuppressWarnings("rawtypes") AbstractProject job) {
-		return new M2ReleaseAction((MavenModuleSet) job, selectCustomScmCommentPrefix, selectAppendHudsonUsername, selectScmCredentials,enableProduct);
+		return new M2ReleaseAction((MavenModuleSet) job, selectCustomScmCommentPrefix, selectAppendHudsonUsername, selectScmCredentials, isProduct);
 	}
 
 	/**
@@ -720,7 +720,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 
 		public static final int        DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP = 1;
 		//Product release changes
-		public static final boolean DEFAULT_ENABLE_PRODUCT = false ;
+		public static final boolean DEFAULT_IS_PRODUCT = false ;
 
 		private boolean nexusSupport  = false;
 		private String  nexusURL      = null;
