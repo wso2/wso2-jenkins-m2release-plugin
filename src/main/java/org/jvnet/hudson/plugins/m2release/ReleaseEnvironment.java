@@ -116,6 +116,11 @@ public class ReleaseEnvironment extends BuildWrapper.Environment {
         final MavenModuleSet mmSet = ReleaseUtils.getModuleSet(bld);
         M2ReleaseArgumentsAction args = bld.getAction(M2ReleaseArgumentsAction.class);
 
+        String buildGoals = m2ReleaseBuildWrapper.getReleaseGoals();
+        if (!isNexusReleasePerform(buildGoals)) {
+            lstnr.getLogger().println("[M2Release] Not performing a Nexus release.");
+            return true;
+        }
         try {
             StageClient client = new StageClient(new URL(
                 m2ReleaseBuildWrapper.getDescriptor().getNexusURL()),
@@ -415,4 +420,16 @@ public class ReleaseEnvironment extends BuildWrapper.Environment {
         return numKept < numToKeep;
     }
 
+    /**
+     * Identify whether the "release:perform" goal is defined or not
+     *
+     * @param buildGoals
+     * @return
+     */
+    private boolean isNexusReleasePerform(String buildGoals) {
+        if (buildGoals == null) {
+            return false;
+        }
+        return buildGoals.contains("release:perform");
+    }
 }
