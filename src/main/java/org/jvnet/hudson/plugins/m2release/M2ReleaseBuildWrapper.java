@@ -130,7 +130,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 	public boolean                        selectCustomScmCommentPrefix = DescriptorImpl.DEFAULT_SELECT_CUSTOM_SCM_COMMENT_PREFIX;
 	public boolean                        selectAppendHudsonUsername   = DescriptorImpl.DEFAULT_SELECT_APPEND_HUDSON_USERNAME;
 	public boolean                        selectScmCredentials         = DescriptorImpl.DEFAULT_SELECT_SCM_CREDENTIALS;
-	public boolean 							isProduct					 = DescriptorImpl.DEFAULT_IS_PRODUCT;
+	public boolean                        isProduct                    = DescriptorImpl.DEFAULT_IS_PRODUCT;
 	public int                            numberOfReleaseBuildsToKeep  = DescriptorImpl.DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP;
 
 	@DataBoundConstructor
