@@ -411,8 +411,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			args.setScmTagName(scmTag);
 			args.setScmCommentPrefix(scmCommentPrefix);
 		}
-
-		if (m2ReleaseAction.isNexusSupportEnabled()) {
+		if (m2ReleaseAction.isNexusSupportEnabled() && (args.isCloseNexusStage() == null)) {
 			String nexusStagingDescription = args.getRepoDescription();
 			if (nexusStagingDescription == null) {
 				nexusStagingDescription = m2ReleaseAction
@@ -420,10 +419,9 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 			}
 			args.setCloseNexusStage(m2ReleaseAction.isNexusSupportEnabled());
 			args.setRepoDescription(nexusStagingDescription);
-
 		}
-		if (m2ReleaseAction.isNexusSupportEnabled()) {
-			args.setReleaseNexusStage(m2ReleaseAction.isNexusSupportEnabled());
+		if (m2ReleaseAction.isNexusSupportEnabled() && (args.isCloseNexusStage() != null)) {
+			args.setReleaseNexusStage(args.isCloseNexusStage());
 		}
 
 		// TODO - re-implement versions on specific modules.
