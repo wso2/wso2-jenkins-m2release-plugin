@@ -117,8 +117,8 @@ public class ReleaseEnvironment extends BuildWrapper.Environment {
         M2ReleaseArgumentsAction args = bld.getAction(M2ReleaseArgumentsAction.class);
 
         String buildGoals = m2ReleaseBuildWrapper.getReleaseGoals();
-        if (!isNexusReleasePerform(buildGoals)) {
-            lstnr.getLogger().println("[M2Release] Not performing a Nexus release.");
+        if (!isMavenReleasePerformEnabled(buildGoals)) {
+            lstnr.getLogger().println("[WSO2 Maven Release] Not Releasing the Nexus repository. \"release:perform\" goal is not defined in build goals " + buildGoals);
             return true;
         }
         try {
@@ -423,10 +423,10 @@ public class ReleaseEnvironment extends BuildWrapper.Environment {
     /**
      * Identify whether the "release:perform" goal is defined or not
      *
-     * @param buildGoals
-     * @return
+     * @param buildGoals The build goals for the maven release plugin
+     * @return <code>true</code> if "release:perform" goal is defined for the Maven release plugin
      */
-    private boolean isNexusReleasePerform(String buildGoals) {
+    private boolean isMavenReleasePerformEnabled(String buildGoals) {
         if (buildGoals == null) {
             return false;
         }
