@@ -54,12 +54,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.servlet.ServletException;
 
 /**
  * The action appears as the link in the side bar that users will click on in
  * order to start the release process.
- * 
+ *
  * @author James Nord
  * @author Dominik Bartholdi
  * @version 0.3
@@ -71,8 +73,9 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	private boolean selectCustomScmTag = false;
 	private boolean selectAppendHudsonUsername;
 	private boolean selectScmCredentials;
-
-	public M2ReleaseAction(MavenModuleSet project, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials) {
+	private boolean isProduct = false;
+	private Pattern nextDevelopmentVersionPattern;
+	public M2ReleaseAction(MavenModuleSet project, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, boolean isProduct) {
 		this.project = project;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
@@ -82,7 +85,13 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			// about the stuff we are not able to compute
 			this.selectCustomScmTag = true;
 		}
-	}
+		this.isProduct = isProduct;
+        if (isProduct) {
+            nextDevelopmentVersionPattern = ProductVersionInfo.PRODUCT_NEXT_DEVELOPMENT_VERSION_PATTERN;
+        } else {
+            nextDevelopmentVersionPattern = Pattern.compile(".*(-SNAPSHOT)$");
+        }
+    }
 
 	public List<ParameterDefinition> getParameterDefinitions() {
 		ParametersDefinitionProperty pdp = project.getProperty(ParametersDefinitionProperty.class);
@@ -161,11 +170,16 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			throw new IllegalArgumentException("Cannot proceed with release. Pom version cannot be determined");
 		}
 
-		try {
-			DefaultVersionInfo dvi = new DefaultVersionInfo(rootPomVersion);
-			version = dvi.getReleaseVersionString();
-		} catch (VersionParseException vpEx) {
-			LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
+        try {
+            DefaultVersionInfo dvi = null;
+            if (!isProduct) {
+                dvi = new DefaultVersionInfo(rootPomVersion);
+            } else {
+                dvi = new ProductVersionInfo(rootPomVersion);
+            }
+            version = dvi.getReleaseVersionString();
+        } catch (VersionParseException vpEx) {
+			LOGGER.log(Level.WARNING, "Failed to compute Release version.", vpEx);
 			version = rootPomVersion.replace("-SNAPSHOT", "");
 		}
 
@@ -233,10 +247,15 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 
 		String version = "NaN-SNAPSHOT";
 		try {
-			DefaultVersionInfo dvi = new DefaultVersionInfo(rootPomVersion);
+			DefaultVersionInfo dvi =null ;
+			if(!isProduct){
+				dvi = new DefaultVersionInfo(rootPomVersion);
+			}else {
+				dvi = new ProductVersionInfo(rootPomVersion);
+			}
 			version = dvi.getNextVersion().getSnapshotVersionString();
 		} catch (Exception vpEx) {
-			LOGGER.log(Level.WARNING, "Failed to compute next version.", vpEx);
+			LOGGER.log(Level.WARNING, "Failed to compute next development version.", vpEx);
 		}
 
 		return version;
@@ -257,12 +276,6 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		StaplerRequestWrapper requestWrapper = new StaplerRequestWrapper(req);
 
 		final boolean closeNexusStage = requestWrapper.containsKey("closeNexusStage"); //$NON-NLS-1$
-		final boolean isCloseNexusStage;
-		if (closeNexusStage) {
-			isCloseNexusStage = Boolean.parseBoolean(requestWrapper.getString("closeNexusStage"));
-		} else {
-			isCloseNexusStage = true;
-		}
 		final String repoDescription = closeNexusStage ? requestWrapper.getString("repoDescription") : ""; //$NON-NLS-1$
 		final boolean specifyScmCredentials = requestWrapper.containsKey("specifyScmCredentials"); //$NON-NLS-1$
 		final String scmUsername = specifyScmCredentials ? requestWrapper.getString("scmUsername") : null; //$NON-NLS-1$
@@ -281,7 +294,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		// TODO make this nicer by showing a html error page.
 		// this will throw an exception so control will terminate if the dev
 		// version is not a "SNAPSHOT".
-		enforceDeveloperVersion(developmentVersion);
+		enforceNextDevelopmentVersion(developmentVersion);
 
 		// get the normal job parameters (adapted from
 		// hudson.model.ParametersDefinitionProperty._doBuild(StaplerRequest,
@@ -329,7 +342,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		arguments.setDevelopmentVersion(developmentVersion);
 		// TODO - re-implement versions on specific modules.
 
-		arguments.setCloseNexusStage(isCloseNexusStage);
+		arguments.setCloseNexusStage(closeNexusStage);
 		arguments.setRepoDescription(repoDescription);
 		arguments.setScmUsername(scmUsername);
 		arguments.setScmPassword(scmPassword);
@@ -338,7 +351,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 		arguments.setAppendHusonUserName(appendHusonUserName);
 		arguments.setHudsonUserName(Hudson.getAuthentication().getName());
 
-		
+
 		if (project.scheduleBuild(0, new ReleaseCause(), parameters, arguments)) {
 			resp.sendRedirect(req.getContextPath() + '/' + project.getUrl());
 		} else {
@@ -448,16 +461,17 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	/**
 	 * Enforces that the developer version is actually a developer version and
 	 * ends with "-SNAPSHOT".
-	 * 
-	 * @throws IllegalArgumentException
+	 * For product, enforces that the developer version ends with "-updateX-SNAPSHOT"
+	 * @throws IllegalArgumentExceptiona
 	 *             if the version does not end with "-SNAPSHOT"
 	 */
-	private void enforceDeveloperVersion(String version) throws IllegalArgumentException {
-		if (!version.endsWith("-SNAPSHOT")) {
-			throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Developer Version (%s) is not a valid version (it must end with \"-SNAPSHOT\")",
-					version));
-		}
-	}
+    private void enforceNextDevelopmentVersion(String version) throws IllegalArgumentException {
+        Matcher matcher = nextDevelopmentVersionPattern.matcher(version);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException(String.format(Locale.ENGLISH, "Next Development Version (%s) is not a valid version (it must end with \"%s\")",
+                    version, nextDevelopmentVersionPattern.pattern()));
+        }
+    }
 
 	private static final List<Permalink> PERMALINKS = Collections.singletonList(LastReleasePermalink.INSTANCE);
 

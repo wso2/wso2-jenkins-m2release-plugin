@@ -50,7 +50,7 @@ public class M2ReleaseArgumentsAction implements Action {
 	 */
 	private Map<String, String> moduledevelopmentVersions = null;
 
-	private boolean closeNexusStage = true;
+	private Boolean closeNexusStage = null;
 	private boolean releaseNexusStage = false;
 	private transient String repoDescription;
 
@@ -115,7 +115,7 @@ public class M2ReleaseArgumentsAction implements Action {
 		this.moduledevelopmentVersions = new TreeMap<String, String>(moduledevelopmentVersions);
 	}
 
-	public boolean isCloseNexusStage() {
+	public Boolean isCloseNexusStage() {
 		return closeNexusStage;
 	}
 

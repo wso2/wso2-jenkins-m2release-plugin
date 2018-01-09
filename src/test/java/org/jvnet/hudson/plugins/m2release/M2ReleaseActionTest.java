@@ -23,11 +23,10 @@
  */
 package org.jvnet.hudson.plugins.m2release;
 
-import hudson.maven.MavenUtil;
 import hudson.maven.MavenModuleSet;
 import hudson.maven.MavenModuleSetBuild;
+import hudson.maven.MavenUtil;
 import hudson.tasks.Maven.MavenInstallation;
-
 import org.jvnet.hudson.plugins.m2release.M2ReleaseBuildWrapper.DescriptorImpl;
 import org.jvnet.hudson.test.ExtractResourceSCM;
 import org.jvnet.hudson.test.HudsonTestCase;
@@ -60,7 +59,7 @@ public class M2ReleaseActionTest extends HudsonTestCase {
 		m.setGoals("dummygoal"); // build would fail with this goal
 
 		final M2ReleaseBuildWrapper wrapper = new M2ReleaseBuildWrapper(DescriptorImpl.DEFAULT_RELEASE_GOALS, DescriptorImpl.DEFAULT_DRYRUN_GOALS, false,
-				false, false, "ENV", "USERENV", "PWDENV", DescriptorImpl.DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP);
+				false, false, "ENV", "USERENV", "PWDENV", DescriptorImpl.DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP, false);
 		M2ReleaseArgumentsAction args = new M2ReleaseArgumentsAction();
 		args.setDevelopmentVersion("1.0-SNAPSHOT");
 		args.setReleaseVersion("0.9");
