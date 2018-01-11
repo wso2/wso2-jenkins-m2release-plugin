@@ -50,6 +50,9 @@
 	<f:entry title="Is this a Product Repo" help="/plugin/m2release/help-projectEnableProduct.html">
 		<f:checkbox name="isProduct" checked="${h.defaulted(instance.isProduct,descriptor.DEFAULT_IS_PRODUCT)}"/>
 	</f:entry>
+	<f:entry title="Is this a Forked Repo" help="/plugin/m2release/help-projectForked-repo.html">
+		<f:checkbox name="isForkedRepo" checked="${h.defaulted(instance.isForkedRepo,descriptor.DEFAULT_IS_FORKED_REPO)}"/>
+	</f:entry>
 	<f:advanced>
 		<f:entry title="Release environment variable" help="/plugin/m2release/help-projectConfig-releaseEnvVar.html">
 			<f:textbox field="releaseEnvVar" value="${h.defaulted(instance.releaseEnvVar,descriptor.DEFAULT_RELEASE_ENVVAR)}"/>
