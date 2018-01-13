@@ -175,15 +175,8 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			throw new IllegalArgumentException("Cannot proceed with release. Pom version cannot be determined");
 		}
 
-        try {
-			VersionInfo dvi = null;
-			if (isProduct) {
-				dvi = new ProductVersionInfo(rootPomVersion);
-			} else if (isForkedRepo) {
-				dvi = new ForkedRepoVersionInfo(rootPomVersion);
-			} else {
-				dvi = new DefaultVersionInfo(rootPomVersion);
-			}
+		try {
+			VersionInfo dvi = getVersionInfoObj(rootPomVersion);
 			version = dvi.getReleaseVersionString();
 		} catch (VersionParseException vpEx) {
 			LOGGER.log(Level.WARNING, "Failed to compute Release version.", vpEx);
@@ -254,20 +247,26 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 
 		String version = "NaN-SNAPSHOT";
 		try {
-			VersionInfo dvi = null;
-			if (isProduct) {
-				dvi = new ProductVersionInfo(rootPomVersion);
-			} else if (isForkedRepo) {
-				dvi = new ForkedRepoVersionInfo(rootPomVersion);
-			} else {
-				dvi = new DefaultVersionInfo(rootPomVersion);
-			}
+			VersionInfo dvi = getVersionInfoObj(rootPomVersion);
 			version = dvi.getNextVersion().getSnapshotVersionString();
 		} catch (Exception vpEx) {
 			LOGGER.log(Level.WARNING, "Failed to compute next development version.", vpEx);
 		}
 
 		return version;
+	}
+
+	// Select correct version logic according to the repo type
+	private VersionInfo getVersionInfoObj(String rootPomVersion) throws VersionParseException {
+		VersionInfo dvi = null;
+		if (isProduct) {
+			dvi = new ProductVersionInfo(rootPomVersion);
+		} else if (isForkedRepo) {
+			dvi = new ForkedRepoVersionInfo(rootPomVersion);
+		} else {
+			dvi = new DefaultVersionInfo(rootPomVersion);
+		}
+		return dvi;
 	}
 	/* END WSO2 CHANGES */
 
