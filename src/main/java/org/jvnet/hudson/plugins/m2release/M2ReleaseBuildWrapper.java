@@ -220,6 +220,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		listener.getLogger().println("[WSO2 Maven Release] Is a Forked Repo Release: " + isForkedRepo);
 
 
+
         //validate
 		if (!validateRelease(build, launcher, listener, args)) {
 			return new DefaultEnvironment();
@@ -396,6 +397,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		if (rootPomVersion == null) {
 			return args;
 		}
+
 
 		M2ReleaseAction m2ReleaseAction = new M2ReleaseAction(mms, false, false, false, isProduct, isForkedRepo);
 		if (args.getDevelopmentVersion() == null) {

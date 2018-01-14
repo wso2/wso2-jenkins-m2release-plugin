@@ -78,6 +78,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	private boolean isForkedRepo = false;
 	private Pattern nextDevelopmentVersionPattern;
 	public M2ReleaseAction(MavenModuleSet project, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, boolean isProduct, boolean isForkedRepo) {
+
 		this.project = project;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
@@ -97,6 +98,7 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			nextDevelopmentVersionPattern = Pattern.compile(".*(-SNAPSHOT)$");
 		}
 	}
+
 
 	public List<ParameterDefinition> getParameterDefinitions() {
 		ParametersDefinitionProperty pdp = project.getProperty(ParametersDefinitionProperty.class);

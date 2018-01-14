@@ -94,6 +94,7 @@ public class M2ReleaseBadgeActionTest extends HudsonTestCase {
 				new M2ReleaseBuildWrapper(DescriptorImpl.DEFAULT_RELEASE_GOALS, DescriptorImpl.DEFAULT_DRYRUN_GOALS,
 						false, false, false, "ENV", "USERENV", "PWDENV",
 						DescriptorImpl.DEFAULT_NUMBER_OF_RELEASE_BUILDS_TO_KEEP, false, false);
+
 		M2ReleaseArgumentsAction args = new M2ReleaseArgumentsAction();
 		args.setReleaseVersion("1.0");
 		args.setDevelopmentVersion("1.1-SNAPSHOT");
