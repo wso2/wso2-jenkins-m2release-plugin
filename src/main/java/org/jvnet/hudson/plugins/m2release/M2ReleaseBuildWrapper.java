@@ -217,6 +217,7 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		listener.getLogger().println("[WSO2 Maven Release]  Next Development Version: " + args.getDevelopmentVersion());
 		listener.getLogger().println("[WSO2 Maven Release]  Close Nexus Staging? " + args.isCloseNexusStage()); //global config
 		listener.getLogger().println("[WSO2 Maven Release] Is a Product Release: " + isProduct);
+		listener.getLogger().println("[WSO2 Maven Release] Is a Forked Repo Release: " + isForkedRepo);
 
 
         //validate
