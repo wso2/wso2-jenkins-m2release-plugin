@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *  Copyright (c) 2018, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
  *
  *  WSO2 Inc. licenses this file to you under the Apache License,
  *  Version 2.0 (the "License"); you may not use this file except
@@ -28,6 +28,9 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * This class enforces the next Development version syntax for Forked Repo
+ */
 public class ForkedRepoVersionInfo extends DefaultVersionInfo {
 
     private transient Logger log = LoggerFactory.getLogger(ForkedRepoVersionInfo.class);
@@ -46,7 +49,8 @@ public class ForkedRepoVersionInfo extends DefaultVersionInfo {
         rootVersion = version;
         matcher = FORKED_REPO_NEXT_DEVELOPMENT_VERSION_PATTERN.matcher(version);
         if (!matcher.matches()) {
-            throw new VersionParseException(String.format(Locale.ENGLISH, "Next Development Version (%s) is not a valid version (it must end with \"%s\")",
+            throw new VersionParseException(String.format(Locale.ENGLISH,
+                    "Next Development Version (%s) is not a valid version (it must end with \"%s\")",
                     version, matcher.pattern()));
         }
     }
