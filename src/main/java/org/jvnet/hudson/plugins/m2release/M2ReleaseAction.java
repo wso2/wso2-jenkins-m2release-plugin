@@ -40,6 +40,7 @@ import net.sf.json.JSONObject;
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.lang.StringUtils;
 import org.apache.maven.shared.release.versions.DefaultVersionInfo;
+import org.apache.maven.shared.release.versions.VersionInfo;
 import org.apache.maven.shared.release.versions.VersionParseException;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
@@ -74,8 +75,10 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 	private boolean selectAppendHudsonUsername;
 	private boolean selectScmCredentials;
 	private boolean isProduct = false;
+	private boolean isForkedRepo = false;
 	private Pattern nextDevelopmentVersionPattern;
-	public M2ReleaseAction(MavenModuleSet project, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, boolean isProduct) {
+	public M2ReleaseAction(MavenModuleSet project, boolean selectCustomScmCommentPrefix, boolean selectAppendHudsonUsername, boolean selectScmCredentials, boolean isProduct, boolean isForkedRepo) {
+
 		this.project = project;
 		this.selectCustomScmCommentPrefix = selectCustomScmCommentPrefix;
 		this.selectAppendHudsonUsername = selectAppendHudsonUsername;
@@ -86,12 +89,16 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			this.selectCustomScmTag = true;
 		}
 		this.isProduct = isProduct;
-        if (isProduct) {
-            nextDevelopmentVersionPattern = ProductVersionInfo.PRODUCT_NEXT_DEVELOPMENT_VERSION_PATTERN;
-        } else {
-            nextDevelopmentVersionPattern = Pattern.compile(".*(-SNAPSHOT)$");
-        }
-    }
+		this.isForkedRepo = isForkedRepo;
+		if (isProduct) {
+			nextDevelopmentVersionPattern = ProductVersionInfo.PRODUCT_NEXT_DEVELOPMENT_VERSION_PATTERN;
+		} else if (isForkedRepo) {
+			nextDevelopmentVersionPattern = ForkedRepoVersionInfo.FORKED_REPO_NEXT_DEVELOPMENT_VERSION_PATTERN;
+		} else {
+			nextDevelopmentVersionPattern = Pattern.compile(".*(-SNAPSHOT)$");
+		}
+	}
+
 
 	public List<ParameterDefinition> getParameterDefinitions() {
 		ParametersDefinitionProperty pdp = project.getProperty(ParametersDefinitionProperty.class);
@@ -170,15 +177,10 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 			throw new IllegalArgumentException("Cannot proceed with release. Pom version cannot be determined");
 		}
 
-        try {
-            DefaultVersionInfo dvi = null;
-            if (!isProduct) {
-                dvi = new DefaultVersionInfo(rootPomVersion);
-            } else {
-                dvi = new ProductVersionInfo(rootPomVersion);
-            }
-            version = dvi.getReleaseVersionString();
-        } catch (VersionParseException vpEx) {
+		try {
+			VersionInfo dvi = getVersionInfoObj(rootPomVersion);
+			version = dvi.getReleaseVersionString();
+		} catch (VersionParseException vpEx) {
 			LOGGER.log(Level.WARNING, "Failed to compute Release version.", vpEx);
 			version = rootPomVersion.replace("-SNAPSHOT", "");
 		}
@@ -247,18 +249,26 @@ public class M2ReleaseAction implements PermalinkProjectAction {
 
 		String version = "NaN-SNAPSHOT";
 		try {
-			DefaultVersionInfo dvi =null ;
-			if(!isProduct){
-				dvi = new DefaultVersionInfo(rootPomVersion);
-			}else {
-				dvi = new ProductVersionInfo(rootPomVersion);
-			}
+			VersionInfo dvi = getVersionInfoObj(rootPomVersion);
 			version = dvi.getNextVersion().getSnapshotVersionString();
 		} catch (Exception vpEx) {
 			LOGGER.log(Level.WARNING, "Failed to compute next development version.", vpEx);
 		}
 
 		return version;
+	}
+
+	// Select correct version logic according to the repo type
+	private VersionInfo getVersionInfoObj(String rootPomVersion) throws VersionParseException {
+		VersionInfo dvi = null;
+		if (isProduct) {
+			dvi = new ProductVersionInfo(rootPomVersion);
+		} else if (isForkedRepo) {
+			dvi = new ForkedRepoVersionInfo(rootPomVersion);
+		} else {
+			dvi = new DefaultVersionInfo(rootPomVersion);
+		}
+		return dvi;
 	}
 	/* END WSO2 CHANGES */
 
