@@ -57,6 +57,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.jvnet.hudson.plugins.m2release.M2ReleaseBuildWrapper.DescriptorImpl.DEFAULT_RELEASE_VERSION_ENVVAR;
+
 public class ReleaseEnvironment extends BuildWrapper.Environment {
 
     private transient Logger log = LoggerFactory.getLogger(ReleaseEnvironment.class);
@@ -66,14 +68,16 @@ public class ReleaseEnvironment extends BuildWrapper.Environment {
     private final String remoteBranch;
     private final String remoteRevision;
     private Launcher launcher;
+    private final String releaseVersion;
 
     public ReleaseEnvironment(BuildWrapper enclosing, String releaseBranch, String remoteBranch,
-		    String remoteRevision, Launcher launcher) {
+		    String remoteRevision, String releaseVersion, Launcher launcher) {
         enclosing.super();
         this.m2ReleaseBuildWrapper = (M2ReleaseBuildWrapper) enclosing;
         this.releaseBranch = releaseBranch;
         this.remoteBranch = remoteBranch;
         this.remoteRevision = remoteRevision;
+        this.releaseVersion = releaseVersion;
         this.launcher = launcher;
     }
 
@@ -82,6 +86,7 @@ public class ReleaseEnvironment extends BuildWrapper.Environment {
         if (StringUtils.isNotBlank(m2ReleaseBuildWrapper.getReleaseEnvVar())) {
             // inform others that we are doing a release build
             env.put(m2ReleaseBuildWrapper.getReleaseEnvVar(), "true");
+            env.put(DEFAULT_RELEASE_VERSION_ENVVAR, releaseVersion);
         }
     }
     /** Do Post-Build actions

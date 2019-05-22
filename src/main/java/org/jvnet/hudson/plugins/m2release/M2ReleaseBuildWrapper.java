@@ -263,7 +263,8 @@ public class M2ReleaseBuildWrapper extends BuildWrapper {
 		String releaseBranch = checkoutReleaseBranch(args, build, launcher, listener);
 		/* END WSO2 changes */
 
-		return new ReleaseEnvironment(this, releaseBranch, remoteBranch, remoteRevision, launcher);
+		return new ReleaseEnvironment(this, releaseBranch, remoteBranch, remoteRevision,
+				args.getReleaseVersion(), launcher);
 	}
 
     /**
