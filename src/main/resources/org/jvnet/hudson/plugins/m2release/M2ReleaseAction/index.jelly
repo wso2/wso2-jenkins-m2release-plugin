@@ -44,7 +44,7 @@
 
 					<j:if test="${it.nexusSupportEnabled}">
 						<f:section title="Nexus Pro Support">
-							<f:optionalBlock name="closeNexusStage" title="Close Nexus Staging Repository" checked="true">
+							<f:optionalBlock name="closeNexusStage" title="Close and Release Nexus Staging Repository (Uncheck for releases that require voting)" checked="true">
 							<f:entry title="Repository Description">
 								<f:textbox name="repoDescription" value="${it.computeRepoDescription()}" />
 							</f:entry>
